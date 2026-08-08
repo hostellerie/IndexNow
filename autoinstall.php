@@ -2,24 +2,28 @@
 
 /* Reminder: always indent with 4 spaces (no tabs). */
 // +---------------------------------------------------------------------------+
-// | IndexNow Plugin 1.0                                                       |
+// | IndexNow Plugin 1.1.0                                                     |
 // +---------------------------------------------------------------------------+
 // | autoinstall.php                                                           |
 // |                                                                           |
 // | This file provides helper functions for the automatic plugin install.     |
 // +---------------------------------------------------------------------------+
-
-/**
-* @package indexnow
-*/
+// | Copyright (C) 2024-2026 by the following authors:                         |
+// |                                                                           |
+// | Authors: Ben (hostellerie.org AT gmail DOT com)                           |
+// +---------------------------------------------------------------------------+
+// |                                                                           |
+// | This program is free software; you can redistribute it and/or             |
+// | modify it under the terms of the GNU General Public License               |
+// | as published by the Free Software Foundation; either version 2            |
+// | of the License, or (at your option) any later version.                    |
+// |                                                                           |
+// +---------------------------------------------------------------------------+
 
 require_once('functions.inc');
 
 /**
  * Plugin autoinstall function
- *
- * This function sets up the necessary information for the automatic installation
- * of the IndexNow plugin, including groups, features, and mappings.
  *
  * @param string $pi_name Plugin name
  * @return array          Plugin information needed for installation
@@ -33,8 +37,8 @@ function plugin_autoinstall_indexnow($pi_name)
     $info = array(
         'pi_name'         => $pi_name,
         'pi_display_name' => $pi_display_name,
-        'pi_version'      => '1.0.0',
-        'pi_gl_version'   => '1.8.0',  // Minimum Geeklog version required
+        'pi_version'      => '1.1.0',
+        'pi_gl_version'   => '2.2.2',  // Minimum Geeklog version required
         'pi_homepage'     => 'https://geeklog.fr'
     );
 
@@ -66,8 +70,6 @@ function plugin_autoinstall_indexnow($pi_name)
 /**
  * Load the plugin configuration during installation
  *
- * This function loads the default configuration values for the plugin during installation.
- *
  * @param string $pi_name Plugin name
  * @return bool           True on successful loading of configuration
  */
@@ -87,16 +89,11 @@ function plugin_load_configuration_indexnow($pi_name)
 /**
  * Post-installation function for the plugin
  *
- * This function is called after the plugin has been installed, allowing for additional
- * setup tasks if necessary.
- *
  * @param string $pi_name Plugin name
  * @return boolean        True to continue installation, false if an error occurs
  */
 function plugin_postinstall_indexnow($pi_name) {
     global $_CONF, $_TABLES;
-
-    // Additional post-install tasks can be added here
 
     return true;
 }
@@ -104,17 +101,12 @@ function plugin_postinstall_indexnow($pi_name) {
 /**
  * Check if the plugin is compatible with the current Geeklog version
  *
- * This function ensures that the plugin is compatible with the installed
- * version of Geeklog.
- *
  * @param string $pi_name Plugin name
  * @return boolean        True if compatible, false if not
  */
 function plugin_compatible_with_this_version_indexnow($pi_name)
 {
     if (!function_exists('COM_newTemplate')) return false;
-
-    // Additional compatibility checks can be added here if necessary
 
     return true;
 }

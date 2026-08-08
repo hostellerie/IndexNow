@@ -1,0 +1,68 @@
+# IndexNow Plugin for Geeklog 2.2.2+
+
+## Overview
+
+The **IndexNow** plugin for Geeklog allows your website to instantly notify search engines (like Bing) when your content is created, updated, or deleted. This improves the speed and accuracy of indexing for your site, saving crawler bandwidth and making your newest content visible faster.
+
+## Features
+
+- **Automated Pinging**: Automatically sends new URLs to IndexNow when an article or static page is saved.
+- **Support for Deletions**: Notifies IndexNow when content is deleted to remove it from search engine indexes.
+- **Batch Submission**: Allows administrators to manually submit batches of existing URLs from the Geeklog administration panel.
+- **Debug Mode**: Toggleable debug logging to `error.log` for monitoring IndexNow API responses.
+- **Geeklog 2.2.2 Native API**: Fully uses the modern configuration API without custom database tables.
+
+## Installation
+
+### Step 1: Download and Install the Plugin
+
+1. Download the plugin archive (`.zip`).
+2. Navigate to your Geeklog Admin Panel at: `https://yourdomain.com/admin/plugins.php`
+3. Use the plugin uploader to upload and install the plugin directly from the zip file.
+4. *Alternatively*, if installing manually: Upload the `indexnow` folder into the `/plugins/` directory of your Geeklog installation, then install it from `/admin/plugins.php`. **You do not need to move any files manually**; the directory structure is preserved natively.
+
+### Step 2: Generate an IndexNow Key
+
+To utilize the IndexNow protocol, you must generate a unique API key. Follow these steps:
+
+1. **Go to the IndexNow Key Generation Page**:
+   Visit Bing's IndexNow key creation page at:
+   https://www.bing.com/webmasters/indexnow
+   - Log in to your account or create one if necessary.
+   - Generate your unique IndexNow key following the instructions provided on the page.
+
+2. **Create and Host the Key File**:
+   - Once you have the key, create a text file (e.g., `your-key.txt`) that contains only the key inside.
+   - Upload this file to the root directory of your website, making it accessible at `https://yourdomain.com/your-key.txt`.
+
+### Step 3: Configure the Plugin
+
+1. **Access Plugin Configuration**:
+   In your Geeklog Admin Panel, go to:
+   `https://yourdomain.com/admin/configuration.php`
+   Select the **IndexNow** section.
+
+2. **Enter the IndexNow Key**:
+   - Paste the key you generated from Bing into the `IndexNow key` field.
+   - You can also enable or disable **Debug Mode** here.
+
+3. **Save the Configuration**.
+
+### Step 4: Verify and Test
+
+1. **Check Key File Accessibility**:
+   Open a browser and navigate to your key file location to verify that it is publicly accessible and returns the key as plain text.
+
+2. **Monitor URL Submissions**:
+   - The plugin automatically submits URLs when you publish or delete content.
+   - If Debug Mode is ON, you can check `logs/error.log` for successful submission messages.
+   - To verify submissions in production, visit the Bing Webmaster Tools dashboard.
+
+## Administration
+
+You can manually trigger submissions of old articles to IndexNow by visiting the IndexNow administration screen in Geeklog.
+
+## Credits
+
+Copyright (C) 2024-2026
+Author: Ben (hostellerie.org AT gmail DOT com)

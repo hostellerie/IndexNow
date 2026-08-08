@@ -2,35 +2,24 @@
 
 /* Reminder: always indent with 4 spaces (no tabs). */
 // +---------------------------------------------------------------------------+
-// | IndexNow Plugin 1.0.1                                                     |
+// | IndexNow Plugin 1.1.0                                                     |
 // +---------------------------------------------------------------------------+
 // | functions.inc                                                             |
 // |                                                                           |
 // | This file does two things: 1) it implements the necessary Geeklog Plugin  |
-// | API method and 2) implements all the common code needed by the hello      |
+// | API method and 2) implements all the common code needed by the indexnow   |
 // | plugin' PHP files.                                                        |
 // +---------------------------------------------------------------------------+
-// | Copyright (C) 2024 by the following authors:                              |
+// | Copyright (C) 2024-2026 by the following authors:                         |
 // |                                                                           |
-// | Authors: ::Ben - ben AT geeklog DOT fr                                    |
+// | Authors: Ben (hostellerie.org AT gmail DOT com)                           |
 // +---------------------------------------------------------------------------+
 // |                                                                           |
 // | This program is free software; you can redistribute it and/or             |
 // | modify it under the terms of the GNU General Public License               |
 // | as published by the Free Software Foundation; either version 2            |
 // | of the License, or (at your option) any later version.                    |
-// |                                                                           |
-// | This program is distributed in the hope that it will be useful,           |
-// | but WITHOUT ANY WARRANTY; without even the implied warranty of            |
-// | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             |
-// | GNU General Public License for more details.                              |
-// |                                                                           |
-// | You should have received a copy of the GNU General Public License         |
-// | along with this program; if not, write to the Free Software Foundation,   |
-// | Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.           |
-// |                                                                           |
 // +---------------------------------------------------------------------------+
-//
 
 // Prevent this file from being accessed directly
 if (strpos(strtolower($_SERVER['PHP_SELF']), 'functions.inc') !== false) {
@@ -51,17 +40,34 @@ if (file_exists($langfile)) {
     require_once $plugin_path . 'language/english.php';
 }
 
-// Load plugin configuration if not already loaded
-if (!isset($_INDEXNOW_CONF['indexnow_key'])) {
+// Load plugin configuration safely
+if (!isset($_INDEXNOW_CONF)) {
     require_once $_CONF['path_system'] . 'classes/config.class.php';
-    
-    $indexnow_config = config::get_instance();
-    $_INDEXNOW_CONF = $indexnow_config->get_config('indexnow');
+    if (class_exists('config')) {
+        $indexnow_config = config::get_instance();
+        $_INDEXNOW_CONF = $indexnow_config->get_config('indexnow');
+    } else {
+        $_INDEXNOW_CONF = array();
+    }
 }
 
 /**
+ * Log function checking debug mode
+ * 
+ * @param string $message
+ * @param bool $force If true, logs even if debug_mode is off (for errors)
+ */
+function indexnow_log($message, $force = false) {
+    global $_INDEXNOW_CONF;
+    $debug_mode = (int) ($_INDEXNOW_CONF['debug_mode'] ?? 0);
+    if ($debug_mode === 1 || $force) {
+        COM_errorLog($message);
+    }
+}
+
+
+/**
  * Automatic uninstall function for the IndexNow plugin.
- * This function returns the configuration necessary for removing the plugin.
  *
  * @return array Plugin information for uninstallation.
  */
@@ -132,6 +138,12 @@ function plugin_itemsaved_indexnow($id, $type) {
 
     $url = '';  // Initialize the variable to store the URL
 
+    // Get the key to check if plugin is configured
+    $key = $_INDEXNOW_CONF['indexnow_key'] ?? '';
+    if (empty($key)) {
+        return;
+    }
+
     // Check the type of saved content
     if ($type === 'article') {
         // Query to check if the article is in draft mode or scheduled for future publication
@@ -181,7 +193,7 @@ function plugin_itemsaved_indexnow($id, $type) {
 
     } else {
         // If the content type is not supported, log an error
-        COM_errorLog("IndexNow Plugin - Unsupported content type: $type for ID $id");
+        indexnow_log("IndexNow Plugin - Unsupported content type: $type for ID $id", true);
         return;
     }
 
@@ -190,50 +202,124 @@ function plugin_itemsaved_indexnow($id, $type) {
 }
 
 /**
- * Send a URL to the IndexNow API.
- * This function submits the URL using the IndexNow protocol and logs the result.
+ * Handle the event when an item is deleted.
+ * The function constructs the URL and sends it to IndexNow for removal.
  *
- * @param string $url The URL to submit to IndexNow.
- * @return mixed The response from the IndexNow API.
+ * @param string $id       The ID of the deleted content.
+ * @param string $type     The type of content (article, staticpages or topic).
+ * @param string $sub_type The sub-type if applicable.
+ */
+function plugin_itemdeleted_indexnow($id, $type, $sub_type = '') {
+    global $_CONF, $_INDEXNOW_CONF;
+    
+    $key = $_INDEXNOW_CONF['indexnow_key'] ?? '';
+    if (empty($key)) {
+        return; // Plugin not configured
+    }
+
+    $url = '';
+    
+    if ($type === 'article') {
+        if ($_CONF['url_rewrite']) {
+            $url = $_CONF['site_url'] . "/article.php/$id";
+        } else {
+            $url = $_CONF['site_url'] . "/article.php?story=$id";
+        }
+    } elseif ($type === 'staticpages') {
+        if ($_CONF['url_rewrite']) {
+            $url = $_CONF['site_url'] . "/staticpages/index.php/$id";
+        } else {
+            $url = $_CONF['site_url'] . "/staticpages/index.php?page=$id";
+        }
+    } elseif ($type === 'topic') {
+        $url = $_CONF['site_url'] . "/index.php?topic=$id";
+    } else {
+        return;
+    }
+    
+    indexnow_log("IndexNow Plugin - Submitting deleted item URL: $url");
+    send_to_indexnow($url);
+}
+
+/**
+ * Send one or multiple URLs to IndexNow.
+ * - If $url is a string  → simple GET submission
+ * - If $url is an array → batch POST submission
+ *
+ * @param string|array $url  URL or list of URLs to submit.
+ * @return mixed
  */
 function send_to_indexnow($url) {
     global $_CONF, $_INDEXNOW_CONF;
 
-    // Retrieve the key from the configuration
-    $key = $_INDEXNOW_CONF['indexnow_key'];
+    $key = $_INDEXNOW_CONF['indexnow_key'] ?? '';
     $keyLocation = $_CONF['site_url'] . '/' . $key . '.txt';
 
-    // If the key is empty or not defined, stop the function
     if (empty($key)) {
-        COM_errorLog("IndexNow: Key not defined or empty. Submission aborted.");
+        indexnow_log("IndexNow: Missing key, aborting.", true);
         return false;
     }
 
-    // Encode the URL before submitting it
-    $encodedUrl = rawurlencode($url);
+    // -------------------------
+    // 🟦 CASE 1 : SINGLE URL (string) → GET
+    // -------------------------
+    if (is_string($url)) {
+        $endpoint = "https://api.indexnow.org/indexnow?url={$url}&key={$key}&keyLocation={$keyLocation}";
 
-    // Construct the endpoint with the key and the encoded URL, including keyLocation
-    $endpoint = "https://www.bing.com/indexnow?url=$encodedUrl&key=$key&keyLocation=$keyLocation";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $endpoint);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-    // Perform the GET request with cURL
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $endpoint);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 
-    // Execute the request and retrieve the response
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+        if ($httpCode != 200 && $httpCode != 202) {
+            indexnow_log("IndexNow GET failed [$url] - HTTP $httpCode", true);
+        } else {
+            indexnow_log("IndexNow GET OK [$url]");
+        }
 
-    // Log only in case of failure
-    if ($httpCode != 200) {
-        COM_errorLog("IndexNow: Failed to submit URL $url - HTTP Code: $httpCode | Key: $key | keyLocation: $keyLocation");
-    } else {
-        COM_errorLog("IndexNow: Successfully submitted URL $url");
+        return $response;
     }
 
-    return $response;
+    // -------------------------
+    // 🟩 CASE 2 : MULTIPLE URLs (array) → BATCH POST JSON
+    // -------------------------
+    if (is_array($url) && !empty($url)) {
+
+        $payload = [
+            "host"        => parse_url($_CONF['site_url'], PHP_URL_HOST),
+            "key"         => $key,
+            "keyLocation" => $keyLocation,
+            "urlList"     => $url
+        ];
+
+        $json = json_encode($payload);
+
+        $ch = curl_init("https://api.indexnow.org/indexnow");
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode != 200 && $httpCode != 202) {
+            indexnow_log("IndexNow BATCH failed (" . count($url) . " URLs) - HTTP $httpCode", true);
+        } else {
+            indexnow_log("IndexNow BATCH OK (" . count($url) . " URLs)");
+        }
+
+        return $response;
+    }
+
+    indexnow_log("IndexNow: Invalid data passed to send_to_indexnow()", true);
+    return false;
 }
+
 
 /**
  * Submit articles to IndexNow by descending date order.
@@ -268,15 +354,12 @@ function submit_articles_by_date_desc_to_indexnow($limit = 1, $offset = 0) {
         }
     }
 
-    // Soumettre chaque URL à IndexNow
-    foreach ($urls as $url) {
-        send_to_indexnow($url);
-        usleep(500000); // Pause de 500 ms pour limiter les requêtes
-    }
+    // Soumettre les URLs à IndexNow
+    send_to_indexnow($urls);
 
     // Enregistrer dans les logs
     $submitted_count = count($urls);
-    COM_errorLog("IndexNow: Submitted $submitted_count articles (offset: $offset, limit: $limit).");
+    indexnow_log("IndexNow: Submitted $submitted_count articles (offset: $offset, limit: $limit).");
 
     return $submitted_count;
 }
@@ -338,7 +421,7 @@ function plugin_runScheduledTask_indexnow() {
         usleep(500000); // 0.5s pause to avoid flooding
     }
 
-    COM_errorLog("IndexNow scheduled task: submitted " . count($urls) . " URLs from the last 24h.", 1);
+    indexnow_log("IndexNow scheduled task: submitted " . count($urls) . " URLs from the last 24h.");
 
     return true;
 }
