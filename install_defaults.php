@@ -2,7 +2,7 @@
 
 /* Reminder: always indent with 4 spaces (no tabs). */
 // +---------------------------------------------------------------------------+
-// | IndexNow Plugin 1.1.0                                                     |
+// | IndexNow Plugin 1.1.6                                                     |
 // +---------------------------------------------------------------------------+
 // | install_defaults.php                                                      |
 // |                                                                           |
@@ -50,7 +50,7 @@ function plugin_initconfig_indexnow()
     // Check if the 'indexnow' group exists
     if (!$c->group_exists('indexnow')) {
 
-        // Geeklog 2.2.2 requires the 10th parameter (subgroup) to be an integer (0 for root subgroup)
+        // The integer tab identifier is supported by Geeklog 2.1.1 through 2.2.2.
         $c->add('sg_0', NULL, 'subgroup', 0, 0, NULL, 0, true, 'indexnow', 0);
         
         $c->add('tab_main', NULL, 'tab', 0, 0, NULL, 0, true, 'indexnow', 0);

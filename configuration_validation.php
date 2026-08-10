@@ -2,7 +2,7 @@
 
 /* Reminder: always indent with 4 spaces (no tabs). */
 // +---------------------------------------------------------------------------+
-// | IndexNow Plugin 1.1.0                                                     |
+// | IndexNow Plugin 1.1.6                                                     |
 // +---------------------------------------------------------------------------+
 // | configuration_validation.php                                              |
 // |                                                                           |
@@ -24,26 +24,7 @@ if (strpos(strtolower($_SERVER['PHP_SELF']), 'configuration_validation.php') !==
     die('This file cannot be used on its own!');
 }
 
-/**
- * Validate configuration values
- *
- * @param string $config_name  Name of the configuration option
- * @param mixed  $config_value The value to validate
- * @return mixed The validated value, or FALSE to reject the change
- */
-function plugin_config_validate_indexnow($config_name, $config_value)
-{
-    if ($config_name == 'indexnow_key') {
-        // Remove spaces and sanitize
-        $config_value = trim(strip_tags($config_value));
-        return $config_value;
-    }
-    
-    if ($config_name == 'debug_mode') {
-        return (int) $config_value;
-    }
-
-    return $config_value;
-}
+// Geeklog's configuration manager reads validation rules from this array.
+$_CONF_VALIDATE['indexnow']['debug_mode'] = array('rule' => 'boolean');
 
 ?>

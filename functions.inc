@@ -2,7 +2,7 @@
 
 /* Reminder: always indent with 4 spaces (no tabs). */
 // +---------------------------------------------------------------------------+
-// | IndexNow Plugin 1.1.0                                                     |
+// | IndexNow Plugin 1.1.6                                                     |
 // +---------------------------------------------------------------------------+
 // | functions.inc                                                             |
 // |                                                                           |
@@ -26,7 +26,7 @@ if (strpos(strtolower($_SERVER['PHP_SELF']), 'functions.inc') !== false) {
     die ('This file cannot be used on its own.');
 }
 
-global $_CONF, $_TABLES;
+global $_CONF, $_TABLES, $_INDEXNOW_CONF;
 
 // Path to the plugin
 $plugin_path = $_CONF['path'] . 'plugins/indexnow/';
@@ -59,10 +59,63 @@ if (!isset($_INDEXNOW_CONF)) {
  */
 function indexnow_log($message, $force = false) {
     global $_INDEXNOW_CONF;
-    $debug_mode = (int) ($_INDEXNOW_CONF['debug_mode'] ?? 0);
+    $debug_mode = isset($_INDEXNOW_CONF['debug_mode'])
+        ? (int) $_INDEXNOW_CONF['debug_mode'] : 0;
     if ($debug_mode === 1 || $force) {
-        COM_errorLog($message);
+        // Use Geeklog's native logger exactly as other plugins do.
+        COM_errorLog('[IndexNow] ' . $message);
+        return true;
     }
+
+    return false;
+}
+
+/**
+ * Inspect the configured IndexNow key and its verification file.
+ *
+ * @return array Key and verification-file status information.
+ */
+function indexnow_get_key_status()
+{
+    global $_CONF, $_INDEXNOW_CONF;
+
+    $key = isset($_INDEXNOW_CONF['indexnow_key'])
+        ? trim($_INDEXNOW_CONF['indexnow_key']) : '';
+    $status = array(
+        'key' => $key,
+        'key_present' => ($key !== ''),
+        'key_valid' => false,
+        'file_path' => '',
+        'file_url' => '',
+        'file_exists' => false,
+        'file_readable' => false,
+        'file_matches' => false
+    );
+
+    if ($key === '') {
+        return $status;
+    }
+
+    // IndexNow keys may contain 8 to 128 ASCII letters, digits, or hyphens.
+    $status['key_valid'] = (bool) preg_match('/^[A-Za-z0-9-]{8,128}$/D', $key);
+    if (!$status['key_valid']) {
+        return $status;
+    }
+
+    $status['file_path'] = rtrim($_CONF['path_html'], '/\\') . DIRECTORY_SEPARATOR .
+        $key . '.txt';
+    $status['file_url'] = rtrim($_CONF['site_url'], '/') . '/' .
+        rawurlencode($key) . '.txt';
+    $status['file_exists'] = is_file($status['file_path']);
+    $status['file_readable'] = $status['file_exists'] &&
+        is_readable($status['file_path']);
+
+    if ($status['file_readable']) {
+        $contents = file_get_contents($status['file_path']);
+        $status['file_matches'] = ($contents !== false && trim($contents) === $key);
+    }
+
+    return $status;
 }
 
 
@@ -76,7 +129,10 @@ function plugin_autouninstall_indexnow()
     $out = array (
         'tables' => array(),
         'groups' => array('IndexNow Admin'),
-        'features' => array('indexnow.admin'),
+        'features' => array(
+            'indexnow.admin',
+            'config.indexnow.tab_main'
+        ),
         'php_blocks' => array(),
         'vars' => array()
     );
@@ -133,21 +189,26 @@ function plugin_getadminoption_indexnow() {
  * @param string $id   The ID of the saved content.
  * @param string $type The type of content (article, staticpage or topic).
  */
-function plugin_itemsaved_indexnow($id, $type) {
-    global $_CONF, $_TABLES;
+function plugin_itemsaved_indexnow($id, $type, $old_id = '') {
+    global $_CONF, $_TABLES, $_INDEXNOW_CONF;
 
     $url = '';  // Initialize the variable to store the URL
 
     // Get the key to check if plugin is configured
-    $key = $_INDEXNOW_CONF['indexnow_key'] ?? '';
+    $key = isset($_INDEXNOW_CONF['indexnow_key'])
+        ? $_INDEXNOW_CONF['indexnow_key'] : '';
     if (empty($key)) {
+        indexnow_log("Save callback ignored: no key configured (type: $type, ID: $id).", true);
         return;
     }
+
+    indexnow_log("Save callback received (type: $type, ID: $id). ");
 
     // Check the type of saved content
     if ($type === 'article') {
         // Query to check if the article is in draft mode or scheduled for future publication
-        $sql = "SELECT draft_flag, date FROM {$_TABLES['stories']} WHERE sid = '$id'";
+        $escaped_id = DB_escapeString($id);
+        $sql = "SELECT draft_flag, date FROM {$_TABLES['stories']} WHERE sid = '$escaped_id'";
         $result = DB_query($sql);
         $A = DB_fetchArray($result);
 
@@ -171,7 +232,8 @@ function plugin_itemsaved_indexnow($id, $type) {
 
     } elseif ($type === 'staticpages') {
         // Query to check if the static page is in draft mode
-        $sql = "SELECT draft_flag FROM {$_TABLES['staticpage']} WHERE sp_id = '$id'";
+        $escaped_id = DB_escapeString($id);
+        $sql = "SELECT draft_flag FROM {$_TABLES['staticpage']} WHERE sp_id = '$escaped_id'";
         $result = DB_query($sql);
         $A = DB_fetchArray($result);
 
@@ -212,7 +274,8 @@ function plugin_itemsaved_indexnow($id, $type) {
 function plugin_itemdeleted_indexnow($id, $type, $sub_type = '') {
     global $_CONF, $_INDEXNOW_CONF;
     
-    $key = $_INDEXNOW_CONF['indexnow_key'] ?? '';
+    $key = isset($_INDEXNOW_CONF['indexnow_key'])
+        ? $_INDEXNOW_CONF['indexnow_key'] : '';
     if (empty($key)) {
         return; // Plugin not configured
     }
@@ -252,7 +315,8 @@ function plugin_itemdeleted_indexnow($id, $type, $sub_type = '') {
 function send_to_indexnow($url) {
     global $_CONF, $_INDEXNOW_CONF;
 
-    $key = $_INDEXNOW_CONF['indexnow_key'] ?? '';
+    $key = isset($_INDEXNOW_CONF['indexnow_key'])
+        ? $_INDEXNOW_CONF['indexnow_key'] : '';
     $keyLocation = $_CONF['site_url'] . '/' . $key . '.txt';
 
     if (empty($key)) {
@@ -264,18 +328,26 @@ function send_to_indexnow($url) {
     // 🟦 CASE 1 : SINGLE URL (string) → GET
     // -------------------------
     if (is_string($url)) {
-        $endpoint = "https://api.indexnow.org/indexnow?url={$url}&key={$key}&keyLocation={$keyLocation}";
+        $endpoint = 'https://api.indexnow.org/indexnow?' . http_build_query(array(
+            'url' => $url,
+            'key' => $key,
+            'keyLocation' => $keyLocation
+        ), '', '&');
 
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $endpoint);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         curl_close($ch);
 
-        if ($httpCode != 200 && $httpCode != 202) {
-            indexnow_log("IndexNow GET failed [$url] - HTTP $httpCode", true);
+        if ($response === false || ($httpCode != 200 && $httpCode != 202)) {
+            indexnow_log("IndexNow GET failed [$url] - HTTP $httpCode" .
+                ($curlError !== '' ? " - cURL: $curlError" : ''), true);
         } else {
             indexnow_log("IndexNow GET OK [$url]");
         }
@@ -302,13 +374,18 @@ function send_to_indexnow($url) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         curl_close($ch);
 
-        if ($httpCode != 200 && $httpCode != 202) {
-            indexnow_log("IndexNow BATCH failed (" . count($url) . " URLs) - HTTP $httpCode", true);
+        if ($response === false || ($httpCode != 200 && $httpCode != 202)) {
+            indexnow_log("IndexNow BATCH failed (" . count($url) .
+                " URLs) - HTTP $httpCode" .
+                ($curlError !== '' ? " - cURL: $curlError" : ''), true);
         } else {
             indexnow_log("IndexNow BATCH OK (" . count($url) . " URLs)");
         }
@@ -334,6 +411,8 @@ function submit_articles_by_date_desc_to_indexnow($limit = 1, $offset = 0) {
     global $_CONF, $_TABLES;
 
     $urls = [];
+    $limit = max(1, (int) $limit);
+    $offset = max(0, (int) $offset);
 
     // Requête SQL : trie par date décroissante et utilise offset pour sélectionner le bon lot
     $sql = "SELECT sid, date 
@@ -409,9 +488,9 @@ function plugin_runScheduledTask_indexnow() {
 
     while ($A = DB_fetchArray($result)) {
         if ($_CONF['url_rewrite']) {
-            $urls[] = $_CONF['site_url'] . "/page.php/" . $A['sp_id'];
+            $urls[] = $_CONF['site_url'] . "/staticpages/index.php/" . $A['sp_id'];
         } else {
-            $urls[] = $_CONF['site_url'] . "/page.php?page=" . $A['sp_id'];
+            $urls[] = $_CONF['site_url'] . "/staticpages/index.php?page=" . $A['sp_id'];
         }
     }
 
@@ -425,5 +504,22 @@ function plugin_runScheduledTask_indexnow() {
 
     return true;
 }
+
+/**
+ * Return the plugin code version shown by Geeklog's plugin editor.
+ *
+ * @return string
+ */
+function plugin_chkVersion_indexnow()
+{
+    global $_CONF;
+
+    require_once $_CONF['path'] . 'plugins/indexnow/autoinstall.php';
+    $install = plugin_autoinstall_indexnow('indexnow');
+
+    return $install['info']['pi_version'];
+}
+
+require_once $_CONF['path'] . 'plugins/indexnow/install_updates.php';
 
 ?>

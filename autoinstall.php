@@ -2,7 +2,7 @@
 
 /* Reminder: always indent with 4 spaces (no tabs). */
 // +---------------------------------------------------------------------------+
-// | IndexNow Plugin 1.1.0                                                     |
+// | IndexNow Plugin 1.1.6                                                     |
 // +---------------------------------------------------------------------------+
 // | autoinstall.php                                                           |
 // |                                                                           |
@@ -37,8 +37,8 @@ function plugin_autoinstall_indexnow($pi_name)
     $info = array(
         'pi_name'         => $pi_name,
         'pi_display_name' => $pi_display_name,
-        'pi_version'      => '1.1.0',
-        'pi_gl_version'   => '2.2.2',  // Minimum Geeklog version required
+        'pi_version'      => '1.1.6',
+        'pi_gl_version'   => '2.1.1',  // Minimum Geeklog version required
         'pi_homepage'     => 'https://geeklog.fr'
     );
 
@@ -47,11 +47,13 @@ function plugin_autoinstall_indexnow($pi_name)
     );
 
     $features = array(
-        $pi_name . '.admin'   => 'Full access to ' . $pi_display_name . ' plugin'
+        $pi_name . '.admin'              => 'Full access to ' . $pi_display_name . ' plugin',
+        'config.' . $pi_name . '.tab_main' => 'Access to configure the ' . $pi_display_name . ' plugin'
     );
 
     $mappings = array(
-        $pi_name . '.admin'     => array($pi_admin)
+        $pi_name . '.admin'                => array($pi_admin),
+        'config.' . $pi_name . '.tab_main' => array($pi_admin)
     );
 
     $tables = array();  // No additional database tables are created for this plugin
@@ -106,7 +108,12 @@ function plugin_postinstall_indexnow($pi_name) {
  */
 function plugin_compatible_with_this_version_indexnow($pi_name)
 {
-    if (!function_exists('COM_newTemplate')) return false;
+    if (!function_exists('COM_newTemplate') ||
+        !function_exists('PLG_itemSaved') ||
+        !function_exists('SEC_createToken') ||
+        !function_exists('curl_init')) {
+        return false;
+    }
 
     return true;
 }

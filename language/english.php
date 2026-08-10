@@ -1,26 +1,24 @@
 <?php
 
-###############################################################################
-# english.php
-#
-# This is the English language file for the Geeklog indexnow plugin
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-#
-###############################################################################
-
+/* Reminder: always indent with 4 spaces (no tabs). */
+// +---------------------------------------------------------------------------+
+// | IndexNow Plugin 1.1.6                                                     |
+// +---------------------------------------------------------------------------+
+// | language/english.php                                                      |
+// |                                                                           |
+// | This is the English language file for the Geeklog IndexNow plugin         |
+// +---------------------------------------------------------------------------+
+// | Copyright (C) 2024-2026 by the following authors:                         |
+// |                                                                           |
+// | Authors: Ben (hostellerie.org AT gmail DOT com)                           |
+// +---------------------------------------------------------------------------+
+// |                                                                           |
+// | This program is free software; you can redistribute it and/or             |
+// | modify it under the terms of the GNU General Public License               |
+// | as published by the Free Software Foundation; either version 2            |
+// | of the License, or (at your option) any later version.                    |
+// |                                                                           |
+// +---------------------------------------------------------------------------+
 
 // Localization of the Admin Configuration UI
 $LANG_configsections['indexnow'] = array(
@@ -30,14 +28,19 @@ $LANG_configsections['indexnow'] = array(
 
 $LANG_confignames['indexnow'] = array(
     'indexnow_key' => 'IndexNow key',
+    'debug_mode'   => 'Debug Mode'
 );
 
 $LANG_configsubgroups['indexnow'] = array(
-    'sg_0' => 'Main Settings',
+    'sg_0' => 'Main Settings'
 );
 
 $LANG_fs['indexnow'] = array(
     'fs_01' => 'IndexNow plugin'
+);
+
+$LANG_tab['indexnow'] = array(
+    'tab_main' => 'General Settings'
 );
 
 // Note: entries 0, 1, and 12 are the same as in $LANG_configselects['Core']
@@ -51,7 +54,7 @@ $LANG_indexnow = array(
     'plugin_name'             => 'IndexNow',
     'submit_success'          => 'Successfully submitted %d articles to Bing.',
     'submit_error'            => 'An error occurred while submitting articles.',
-    'submit_to_bing'          => 'Submit to Bing',
+    'submit_to_bing'          => 'Submit Batch',
     'submit_first_batch'      => 'Click the button below to submit the first batch of %d articles.',
     'submit_next_batch_message' => 'Click the button below to submit the next batch of %d articles. %d articles remaining.',
     'no_articles_to_submit'   => 'No more articles to submit.',
@@ -59,7 +62,31 @@ $LANG_indexnow = array(
     'loading_message'         => 'Submitting articles, please wait...',
     'total_articles'          => 'Total articles available for submission: %d.',
     'no_articles_remaining'   => 'All articles have been submitted. No articles remaining.',
+    'plugin_denied_msg'       => 'You do not have the required permissions to access the IndexNow administration.',
+    'access_denied'           => 'Access Denied',
+    'key_missing'             => 'IndexNow key is not configured.',
+    'key_missing_help'        => 'Add a key in the IndexNow configuration before submitting URLs.',
+    'key_invalid'             => 'The configured IndexNow key is invalid.',
+    'key_invalid_help'        => 'A key must contain 8 to 128 letters, digits, or hyphens.',
+    'key_present'             => 'The IndexNow key is configured.',
+    'key_file_missing'        => 'The verification file was not found in the site root.',
+    'key_file_unreadable'     => 'The verification file exists but cannot be read by PHP.',
+    'key_file_mismatch'       => 'The verification file does not match the configured key.',
+    'key_file_mismatch_help'  => 'The file must contain only the configured key.',
+    'key_ready'               => 'The IndexNow key and verification file are ready.',
+    'configured_key'          => 'Configured key',
+    'expected_file'           => 'Expected file on the server',
+    'public_url'              => 'Public verification URL',
+    'open_configuration'      => 'Open IndexNow configuration',
+    'configuration_status'    => 'Configuration status',
+    'manual_submission'       => 'Manual article submission',
+    'submission_not_ready'    => 'Complete the key and verification-file configuration before submitting URLs.',
+    'debug_status'            => 'Debug mode:',
+    'debug_enabled'           => 'enabled — submissions are written to error.log.',
+    'debug_disabled'          => 'disabled — only errors are written to error.log.',
+    'error_log'               => 'Log file:',
+    'documentation'           => 'Documentation & Help',
+    'documentation_content'   => '<p><strong>Step 1: Generate an IndexNow Key</strong><br>Visit Bing\'s IndexNow key creation page at <a href="https://www.bing.com/webmasters/indexnow" target="_blank">https://www.bing.com/webmasters/indexnow</a>. Generate your unique key.</p><p><strong>Step 2: Create and Host the Key File</strong><br>Create a text file (e.g., your-key.txt) containing only your key, and upload it to the root directory of your website.</p><p><strong>Step 3: Configure the Plugin</strong><br>Go to the Geeklog Configuration, select IndexNow, and enter your key.</p>'
 );
-
 
 ?>

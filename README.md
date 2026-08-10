@@ -1,4 +1,6 @@
-# IndexNow Plugin for Geeklog 2.2.2+
+# IndexNow Plugin for Geeklog 2.1.1 to 2.2.2
+
+Current release: **1.1.6**
 
 ## Overview
 
@@ -10,12 +12,12 @@ The **IndexNow** plugin for Geeklog allows your website to instantly notify sear
 - **Support for Deletions**: Notifies IndexNow when content is deleted to remove it from search engine indexes.
 - **Batch Submission**: Allows administrators to manually submit batches of existing URLs from the Geeklog administration panel.
 - **Debug Mode**: Toggleable debug logging to `error.log` for monitoring IndexNow API responses.
-- **Geeklog 2.2.2 Native API**: Fully uses the modern configuration API without custom database tables.
+- **Geeklog configuration API**: Uses the native configuration API without custom database tables.
 
 ## Requirements
 
-- **Geeklog**: 2.2.2 or higher
-- **PHP**: 7.4, 8.0, 8.1, or 8.2
+- **Geeklog**: 2.1.1 through 2.2.2
+- **PHP**: 5.6 or a PHP version supported by the installed Geeklog release
 
 ## Installation
 
