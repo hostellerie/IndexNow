@@ -14,6 +14,29 @@ if (strpos(strtolower($_SERVER['PHP_SELF']), 'submission_history.php') !== false
 }
 
 /**
+ * Check whether the submission history table can be used safely.
+ *
+ * @return bool
+ */
+function indexnow_history_table_ready()
+{
+    global $_TABLES;
+
+    if (!isset($_TABLES['indexnow_submissions']) || $_TABLES['indexnow_submissions'] === '') {
+        return false;
+    }
+
+    if (function_exists('indexnow_submission_table_exists')) {
+        return indexnow_submission_table_exists();
+    }
+
+    $table = $_TABLES['indexnow_submissions'];
+    $result = DB_query("SHOW TABLES LIKE '" . DB_escapeString($table) . "'");
+
+    return ($result && DB_numRows($result) > 0);
+}
+
+/**
  * Record one IndexNow submission attempt.
  *
  * @param array  $context   item_type, item_id, item_subtype and event
@@ -28,7 +51,7 @@ function indexnow_record_submission($context, $url, $submitted, $httpCode, $stat
 {
     global $_TABLES;
 
-    if (!isset($_TABLES['indexnow_submissions'])) {
+    if (!indexnow_history_table_ready()) {
         return false;
     }
 
@@ -68,7 +91,7 @@ function indexnow_get_recent_submissions($limit = 25)
     global $_TABLES;
 
     $rows = array();
-    if (!isset($_TABLES['indexnow_submissions'])) {
+    if (!indexnow_history_table_ready()) {
         return $rows;
     }
 
@@ -101,7 +124,7 @@ function indexnow_get_last_submission($type, $id)
 {
     global $_TABLES;
 
-    if (!isset($_TABLES['indexnow_submissions'])) {
+    if (!indexnow_history_table_ready()) {
         return array();
     }
 
@@ -127,7 +150,7 @@ function indexnow_purge_submission_history($days = null)
 {
     global $_INDEXNOW_CONF, $_TABLES;
 
-    if (!isset($_TABLES['indexnow_submissions'])) {
+    if (!indexnow_history_table_ready()) {
         return 0;
     }
 
