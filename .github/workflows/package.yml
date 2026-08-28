@@ -1,0 +1,84 @@
+name: Build installable archive
+
+on:
+  push:
+    branches:
+      - generic-item-listener
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: generic-item-listener
+          fetch-depth: 0
+
+      - name: Lint plugin PHP files
+        shell: bash
+        run: |
+          set -e
+          find . -type f \( -name '*.php' -o -name '*.inc' \) \
+            -not -path './.git/*' \
+            -not -path './dist/*' \
+            -print0 | xargs -0 -n1 php -l
+
+      - name: Verify release metadata
+        shell: bash
+        run: |
+          set -e
+          grep -q "'pi_version'.*'1.1.6'" autoinstall.php
+          grep -q "'pi_gl_version'.*'2.1.1'" autoinstall.php
+          grep -q 'IndexNow Plugin 1.1.6' functions.inc
+          grep -q 'function plugin_itemsaved_indexnow' functions.inc
+          grep -q 'function plugin_itemdeleted_indexnow' functions.inc
+
+      - name: Build installable archive
+        shell: bash
+        run: |
+          set -e
+          rm -rf build
+          mkdir -p build/indexnow
+
+          cp -a \
+            admin \
+            language \
+            autoinstall.php \
+            configuration_validation.php \
+            functions.inc \
+            install_defaults.php \
+            install_updates.php \
+            CHANGELOG.md \
+            INSTALL \
+            README.md \
+            build/indexnow/
+
+          cd build
+          zip -r indexnow_1.1.6_2.1.1.zip indexnow >/dev/null
+          unzip -t indexnow_1.1.6_2.1.1.zip >/dev/null
+          test "$(zipinfo -1 indexnow_1.1.6_2.1.1.zip | head -n 1)" = 'indexnow/'
+
+      - name: Commit archive to dist
+        shell: bash
+        run: |
+          set -e
+          mkdir -p dist
+          cp build/indexnow_1.1.6_2.1.1.zip dist/indexnow_1.1.6_2.1.1.zip
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f dist/indexnow_1.1.6_2.1.1.zip
+
+          if git diff --cached --quiet; then
+            echo 'Archive is already up to date.'
+            exit 0
+          fi
+
+          git commit -m 'Build IndexNow 1.1.6 installable archive [skip ci]'
+          git push origin HEAD:generic-item-listener
