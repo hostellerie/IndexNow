@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - generic-item-listener
+      - main
   workflow_dispatch:
 
 permissions:
@@ -17,7 +18,7 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v4
         with:
-          ref: generic-item-listener
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Lint plugin PHP files
@@ -88,4 +89,4 @@ jobs:
           fi
 
           git commit -m 'Build IndexNow 1.2.0 installable archive [skip ci]'
-          git push origin HEAD:generic-item-listener
+          git push origin HEAD:${{ github.ref_name }}
