@@ -316,7 +316,7 @@ function plugin_itemsaved_indexnow($id, $type, $old_id = '', $sub_type = '') {
  * Handle the event when an item is deleted.
  *
  * Generic plugin deletions are always resolved and logged, even without an
- * IndexNow key. They remain intentionally NOT submitted during validation.
+ * IndexNow key. When a key is configured, the resolved URL is submitted.
  */
 function plugin_itemdeleted_indexnow($id, $type, $sub_type = '') {
     global $_CONF, $_INDEXNOW_CONF;
@@ -349,11 +349,15 @@ function plugin_itemdeleted_indexnow($id, $type, $sub_type = '') {
             return;
         }
 
-        indexnow_log(
-            "TEST generic delete resolved (NOT submitted to IndexNow) - type: $type, ID: $id, URL: $url",
-            true
-        );
-        return;
+        if ($key === '') {
+            indexnow_log(
+                "TEST generic delete resolved (NOT submitted: no key configured) - type: $type, ID: $id, URL: $url",
+                true
+            );
+            return;
+        }
+
+        indexnow_log("Submitting deleted plugin item URL - type: $type, ID: $id, URL: $url");
     }
 
     indexnow_log("IndexNow Plugin - Submitting deleted item URL: $url");
