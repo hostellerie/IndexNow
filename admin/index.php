@@ -22,6 +22,200 @@ if (!SEC_hasRights('indexnow.admin')) {
 }
 
 require_once $_CONF['path'] . 'plugins/indexnow/functions.inc';
+require_once $_CONF['path_system'] . 'lib-admin.php';
+
+/**
+ * Render one field in the native Geeklog submission-history list.
+ */
+function INDEXNOW_getSubmissionListField($fieldName, $fieldValue, $A, $iconArray)
+{
+    global $LANG_indexnow;
+
+    switch ($fieldName) {
+        case 'submitted_at':
+            $timestamp = strtotime($fieldValue);
+            if ($timestamp !== false && $timestamp > 0) {
+                $date = COM_getUserDateTimeFormat($timestamp);
+                return htmlspecialchars($date[0], ENT_QUOTES, 'UTF-8');
+            }
+            return '&mdash;';
+
+        case 'item_type':
+            $item = trim((string) $A['item_type']);
+            if (isset($A['item_id']) && $A['item_id'] !== '') {
+                $item .= ' / ' . $A['item_id'];
+            }
+            if (isset($A['item_subtype']) && $A['item_subtype'] !== '') {
+                $item .= ' (' . $A['item_subtype'] . ')';
+            }
+            return htmlspecialchars($item, ENT_QUOTES, 'UTF-8');
+
+        case 'event':
+            return htmlspecialchars(ucfirst((string) $fieldValue), ENT_QUOTES, 'UTF-8');
+
+        case 'status':
+            $status = strtolower(trim((string) $fieldValue));
+            $class = 'ixn-badge ixn-badge-skipped';
+            if ($status === 'success') {
+                $class = 'ixn-badge ixn-badge-success';
+            } elseif ($status === 'failed') {
+                $class = 'ixn-badge ixn-badge-failed';
+            }
+            return '<span class="' . $class . '">' .
+                htmlspecialchars($status, ENT_QUOTES, 'UTF-8') . '</span>';
+
+        case 'http_code':
+            return ((int) $fieldValue > 0) ? (string) (int) $fieldValue : '&mdash;';
+
+        case 'url':
+            $url = trim((string) $fieldValue);
+            if ($url === '') {
+                return '&mdash;';
+            }
+            $label = COM_truncate($url, 70, '...');
+            return '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') .
+                '" target="_blank" rel="noopener noreferrer" title="' .
+                htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">' .
+                htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</a>';
+
+        case 'message':
+            $message = trim((string) $fieldValue);
+            if ($message === '') {
+                return '&mdash;';
+            }
+            return '<span title="' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '">' .
+                htmlspecialchars(COM_truncate($message, 90, '...'), ENT_QUOTES, 'UTF-8') . '</span>';
+
+        default:
+            return htmlspecialchars((string) $fieldValue, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+/**
+ * Build native Geeklog filters for the submission history.
+ */
+function INDEXNOW_submissionFilters(&$defaultFilter, &$pageNavUrl)
+{
+    global $_TABLES, $LANG_indexnow;
+
+    $status = isset($_REQUEST['ixn_status']) ? COM_applyFilter($_REQUEST['ixn_status']) : 'all';
+    $event = isset($_REQUEST['ixn_event']) ? COM_applyFilter($_REQUEST['ixn_event']) : 'all';
+    $type = isset($_REQUEST['ixn_type']) ? COM_applyFilter($_REQUEST['ixn_type']) : 'all';
+
+    $allowedStatuses = array('all', 'success', 'failed', 'skipped');
+    $allowedEvents = array('all', 'saved', 'deleted', 'manual', 'scheduled');
+    if (!in_array($status, $allowedStatuses, true)) {
+        $status = 'all';
+    }
+    if (!in_array($event, $allowedEvents, true)) {
+        $event = 'all';
+    }
+
+    if ($status !== 'all') {
+        $defaultFilter .= " AND status='" . DB_escapeString($status) . "'";
+        $pageNavUrl .= '&amp;ixn_status=' . rawurlencode($status);
+    }
+    if ($event !== 'all') {
+        $defaultFilter .= " AND event='" . DB_escapeString($event) . "'";
+        $pageNavUrl .= '&amp;ixn_event=' . rawurlencode($event);
+    }
+    if ($type !== 'all' && $type !== '') {
+        $defaultFilter .= " AND item_type='" . DB_escapeString($type) . "'";
+        $pageNavUrl .= '&amp;ixn_type=' . rawurlencode($type);
+    }
+
+    $typeOptions = '<option value="all">' . $LANG_indexnow['filter_all_types'] . '</option>';
+    $result = DB_query("SELECT DISTINCT item_type FROM {$_TABLES['indexnow_submissions']} WHERE item_type <> '' ORDER BY item_type");
+    while ($row = DB_fetchArray($result)) {
+        $value = (string) $row['item_type'];
+        $selected = ($type === $value) ? ' selected="selected"' : '';
+        $typeOptions .= '<option value="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '"' . $selected . '>' .
+            htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '</option>';
+    }
+
+    $statusOptions = array(
+        'all' => $LANG_indexnow['filter_all_statuses'],
+        'success' => 'Success',
+        'failed' => 'Failed',
+        'skipped' => 'Skipped'
+    );
+    $eventOptions = array(
+        'all' => $LANG_indexnow['filter_all_events'],
+        'saved' => 'Saved',
+        'deleted' => 'Deleted',
+        'manual' => 'Manual',
+        'scheduled' => 'Scheduled'
+    );
+
+    $filter = '<div class="ixn-native-filters">';
+    $filter .= '<label>' . $LANG_indexnow['filter_status'] . ' <select name="ixn_status" onchange="this.form.submit()">';
+    foreach ($statusOptions as $value => $label) {
+        $filter .= '<option value="' . $value . '"' . (($status === $value) ? ' selected="selected"' : '') . '>' . $label . '</option>';
+    }
+    $filter .= '</select></label>';
+    $filter .= '<label>' . $LANG_indexnow['filter_event'] . ' <select name="ixn_event" onchange="this.form.submit()">';
+    foreach ($eventOptions as $value => $label) {
+        $filter .= '<option value="' . $value . '"' . (($event === $value) ? ' selected="selected"' : '') . '>' . $label . '</option>';
+    }
+    $filter .= '</select></label>';
+    $filter .= '<label>' . $LANG_indexnow['filter_type'] . ' <select name="ixn_type" onchange="this.form.submit()">' . $typeOptions . '</select></label>';
+    $filter .= '</div>';
+
+    return $filter;
+}
+
+/**
+ * Render the full searchable, sortable, paginated submission history.
+ */
+function INDEXNOW_submissionHistoryList()
+{
+    global $_CONF, $_TABLES, $LANG_indexnow;
+
+    $headerArray = array(
+        array('text' => $LANG_indexnow['history_date'], 'field' => 'submitted_at', 'sort' => true),
+        array('text' => $LANG_indexnow['history_item'], 'field' => 'item_type', 'sort' => true),
+        array('text' => $LANG_indexnow['history_event'], 'field' => 'event', 'sort' => true),
+        array('text' => $LANG_indexnow['history_status'], 'field' => 'status', 'sort' => true),
+        array('text' => $LANG_indexnow['history_http'], 'field' => 'http_code', 'sort' => true),
+        array('text' => $LANG_indexnow['history_url'], 'field' => 'url', 'sort' => true),
+        array('text' => $LANG_indexnow['history_message'], 'field' => 'message', 'sort' => false)
+    );
+
+    $textArray = array(
+        'has_extras' => true,
+        'title' => $LANG_indexnow['submission_history'],
+        'form_url' => $_CONF['site_admin_url'] . '/plugins/indexnow/index.php',
+        'no_data' => $LANG_indexnow['history_empty']
+    );
+
+    $defaultFilter = '';
+    $pageNavUrl = '';
+    $filter = INDEXNOW_submissionFilters($defaultFilter, $pageNavUrl);
+
+    $queryArray = array(
+        'sql' => "SELECT submission_id,item_type,item_id,item_subtype,event,url,submitted,http_code,status,message,submitted_at " .
+            "FROM {$_TABLES['indexnow_submissions']} WHERE 1=1",
+        'query_fields' => array('item_type', 'item_id', 'item_subtype', 'event', 'url', 'status', 'message', 'http_code'),
+        'default_filter' => $defaultFilter
+    );
+
+    $defaultSortArray = array('field' => 'submitted_at', 'direction' => 'desc');
+
+    return ADMIN_list(
+        'indexnowsubmissions',
+        'INDEXNOW_getSubmissionListField',
+        $headerArray,
+        $textArray,
+        $queryArray,
+        $defaultSortArray,
+        $filter,
+        '',
+        array(),
+        array(),
+        true,
+        $pageNavUrl
+    );
+}
 
 indexnow_purge_submission_history();
 $key_status = indexnow_get_key_status();
@@ -29,7 +223,6 @@ $debug_enabled = isset($_INDEXNOW_CONF['debug_mode']) && (int) $_INDEXNOW_CONF['
 $retention_days = isset($_INDEXNOW_CONF['history_retention_days']) ? (int) $_INDEXNOW_CONF['history_retention_days'] : 90;
 $error_log_path = rtrim($_CONF['path_log'], '/\\') . DIRECTORY_SEPARATOR . 'error.log';
 $submission_ready = $key_status['key_valid'] && $key_status['file_matches'];
-$recent_submissions = indexnow_get_recent_submissions(25);
 
 $offset = isset($_POST['offset']) ? intval($_POST['offset']) : 0;
 $batch_size = 100;
@@ -50,7 +243,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_articles']) &&
             $submitted_range = sprintf($LANG_indexnow['articles_submitted'], $start_range, $end_range);
             $next_offset = $offset + $submitted_count;
             $articles_remaining = $total_articles - $next_offset;
-            $recent_submissions = indexnow_get_recent_submissions(25);
         } else {
             $feedback = COM_showMessageText($LANG_indexnow['no_articles_to_submit'], $LANG_indexnow['plugin_name']);
         }
@@ -68,7 +260,16 @@ if ($offset === 0 && empty($feedback)) {
 }
 
 $display = '<style>
-.ixn-card{box-sizing:border-box;width:100%;margin-bottom:18px;padding:20px;border:1px solid #dfe3e8;border-radius:8px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06)}.ixn-card h2{margin:0 0 16px;font-size:1.2em}.ixn-status{padding:12px 14px;border:1px solid;border-radius:6px;margin-bottom:16px}.ixn-ok{color:#1b5e20;background:#e8f5e9;border-color:#a5d6a7}.ixn-warning{color:#7a4f00;background:#fff8e1;border-color:#ffe082}.ixn-error{color:#b71c1c;background:#ffebee;border-color:#ef9a9a}.ixn-details{display:grid;grid-template-columns:minmax(150px,auto) 1fr;gap:8px 14px;margin:0}.ixn-details dt{font-weight:bold}.ixn-details dd{margin:0;min-width:0;overflow-wrap:anywhere}.ixn-actions{margin-top:18px}.ixn-button{display:inline-block;padding:9px 16px;border:0;border-radius:4px;background:#1678c2;color:#fff;cursor:pointer}.ixn-button[disabled]{background:#aeb7bf;cursor:not-allowed}.ixn-muted{color:#68737d}.ixn-success{color:#1b5e20;font-weight:bold}.ixn-help{padding:16px 20px;border:1px solid #dfe3e8;border-radius:8px;background:#fafbfc}.ixn-config-form{display:inline}.ixn-config-button{padding:0;border:0;background:none;color:#1678c2;cursor:pointer;text-decoration:underline}.ixn-table-wrap{overflow-x:auto}.ixn-table{width:100%;border-collapse:collapse}.ixn-table th,.ixn-table td{padding:9px 8px;border-bottom:1px solid #e5e8eb;text-align:left;vertical-align:top}.ixn-table th{white-space:nowrap}.ixn-url{max-width:420px;overflow-wrap:anywhere}.ixn-badge{display:inline-block;padding:2px 7px;border-radius:12px;font-size:.9em}.ixn-badge-success{background:#e8f5e9;color:#1b5e20}.ixn-badge-failed{background:#ffebee;color:#b71c1c}.ixn-badge-skipped{background:#fff8e1;color:#7a4f00}@media(max-width:640px){.ixn-details{grid-template-columns:1fr}.ixn-details dd{margin-bottom:7px}}
+.ixn-card{box-sizing:border-box;width:100%;margin-bottom:18px;padding:18px 20px;border:1px solid #dfe3e8;border-radius:8px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.ixn-card h2{margin:0 0 14px;font-size:1.15em}.ixn-status{padding:11px 13px;border:1px solid;border-radius:6px;margin-bottom:14px}
+.ixn-ok{color:#1b5e20;background:#e8f5e9;border-color:#a5d6a7}.ixn-warning{color:#7a4f00;background:#fff8e1;border-color:#ffe082}.ixn-error{color:#b71c1c;background:#ffebee;border-color:#ef9a9a}
+.ixn-details{display:grid;grid-template-columns:minmax(150px,auto) 1fr;gap:7px 14px;margin:0}.ixn-details dt{font-weight:bold}.ixn-details dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.ixn-actions{margin-top:16px}.ixn-button{display:inline-block;padding:9px 16px;border:0;border-radius:4px;background:#1678c2;color:#fff;cursor:pointer}.ixn-button[disabled]{background:#aeb7bf;cursor:not-allowed}
+.ixn-muted{color:#68737d}.ixn-success{color:#1b5e20;font-weight:bold}.ixn-help{margin-top:18px;padding:15px 18px;border:1px solid #dfe3e8;border-radius:8px;background:#fafbfc}
+.ixn-config-form{display:inline}.ixn-config-button{padding:0;border:0;background:none;color:#1678c2;cursor:pointer;text-decoration:underline}
+.ixn-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.9em;white-space:nowrap}.ixn-badge-success{background:#e8f5e9;color:#1b5e20}.ixn-badge-failed{background:#ffebee;color:#b71c1c}.ixn-badge-skipped{background:#fff8e1;color:#7a4f00}
+.ixn-native-filters{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}.ixn-native-filters label{white-space:nowrap}.ixn-native-filters select{margin-left:4px;max-width:180px}
+@media(max-width:640px){.ixn-details{grid-template-columns:1fr}.ixn-details dd{margin-bottom:7px}.ixn-native-filters{display:grid;grid-template-columns:1fr}.ixn-native-filters label{white-space:normal}.ixn-native-filters select{width:100%;max-width:none;margin:4px 0 0}}
 </style>';
 
 if ($feedback !== '') {
@@ -130,31 +331,7 @@ $display .= '<form method="post" action="' . htmlspecialchars($_SERVER['PHP_SELF
 $display .= '<button type="submit" id="submit-button" name="submit_articles" class="ixn-button"' . ($submission_ready ? '' : ' disabled="disabled"') . '>' . $LANG_indexnow['submit_to_bing'] . '</button></form>';
 $display .= '<p id="loading-message" class="ixn-muted" style="display:none">' . $LANG_indexnow['loading_message'] . '</p></section>';
 
-$display .= '<section class="ixn-card"><h2>' . $LANG_indexnow['recent_submissions'] . '</h2>';
-if (empty($recent_submissions)) {
-    $display .= '<p class="ixn-muted">' . $LANG_indexnow['history_empty'] . '</p>';
-} else {
-    $display .= '<div class="ixn-table-wrap"><table class="ixn-table"><thead><tr><th>' . $LANG_indexnow['history_date'] . '</th><th>' . $LANG_indexnow['history_item'] . '</th><th>' . $LANG_indexnow['history_event'] . '</th><th>' . $LANG_indexnow['history_status'] . '</th><th>' . $LANG_indexnow['history_http'] . '</th><th>' . $LANG_indexnow['history_url'] . '</th><th>' . $LANG_indexnow['history_message'] . '</th></tr></thead><tbody>';
-    foreach ($recent_submissions as $row) {
-        $status = isset($row['status']) ? $row['status'] : '';
-        $badgeClass = 'ixn-badge-skipped';
-        if ($status === 'success') {
-            $badgeClass = 'ixn-badge-success';
-        } elseif ($status === 'failed') {
-            $badgeClass = 'ixn-badge-failed';
-        }
-        $item = trim((string) $row['item_type']);
-        if ($row['item_id'] !== '') {
-            $item .= ' / ' . $row['item_id'];
-        }
-        $safeUrl = htmlspecialchars($row['url'], ENT_QUOTES, 'UTF-8');
-        $urlHtml = $safeUrl !== '' ? '<a href="' . $safeUrl . '" target="_blank" rel="noopener noreferrer">' . $safeUrl . '</a>' : '&mdash;';
-        $display .= '<tr><td>' . htmlspecialchars($row['submitted_at'], ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars($item, ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars($row['event'], ENT_QUOTES, 'UTF-8') . '</td><td><span class="ixn-badge ' . $badgeClass . '">' . htmlspecialchars($status, ENT_QUOTES, 'UTF-8') . '</span></td><td>' . ((int) $row['http_code'] > 0 ? (int) $row['http_code'] : '&mdash;') . '</td><td class="ixn-url">' . $urlHtml . '</td><td>' . htmlspecialchars($row['message'], ENT_QUOTES, 'UTF-8') . '</td></tr>';
-    }
-    $display .= '</tbody></table></div>';
-}
-$display .= '</section>';
-
+$display .= INDEXNOW_submissionHistoryList();
 $display .= '<details class="ixn-help"><summary>' . $LANG_indexnow['documentation'] . '</summary><div class="ixn-help-body">' . $LANG_indexnow['documentation_content'] . '</div></details>';
 $display .= '<script>function indexnowSubmissionLoading(){var b=document.getElementById("submit-button"),m=document.getElementById("loading-message");if(b){b.disabled=true;}if(m){m.style.display="block";}}</script>';
 
