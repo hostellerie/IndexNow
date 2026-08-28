@@ -53,7 +53,7 @@ if (!isset($_INDEXNOW_CONF)) {
 
 /**
  * Log function checking debug mode
- * 
+ *
  * @param string $message
  * @param bool $force If true, logs even if debug_mode is off (for errors)
  */
@@ -118,7 +118,6 @@ function indexnow_get_key_status()
     return $status;
 }
 
-
 /**
  * Automatic uninstall function for the IndexNow plugin.
  *
@@ -150,15 +149,14 @@ function plugin_cclabel_indexnow() {
 
     if (SEC_hasRights('indexnow.admin')) {
         return array(
-            $LANG_indexnow['plugin_name'], // Nom du plugin
-            $_CONF['site_admin_url'] . '/plugins/indexnow/index.php', // Lien vers la page admin
-            $_CONF['site_admin_url'] . '/plugins/indexnow/indexnow.png' // Icône du plugin (optionnel, remplacez par le chemin correct)
+            $LANG_indexnow['plugin_name'],
+            $_CONF['site_admin_url'] . '/plugins/indexnow/index.php',
+            $_CONF['site_admin_url'] . '/plugins/indexnow/indexnow.png'
         );
     }
 
-    return ''; // Si l'utilisateur n'a pas les droits, ne rien afficher
+    return '';
 }
-
 
 /**
  * Add the IndexNow plugin to the Admin menu.
@@ -170,31 +168,132 @@ function plugin_getadminoption_indexnow() {
 
     if (SEC_hasRights('indexnow.admin')) {
         return array(
-            $LANG_indexnow['plugin_name'], // Nom du plugin
-            $_CONF['site_admin_url'] . '/plugins/indexnow/index.php', // URL de la page admin
-            '' // Nombre d'éléments spécifiques ou vide si non applicable
+            $LANG_indexnow['plugin_name'],
+            $_CONF['site_admin_url'] . '/plugins/indexnow/index.php',
+            ''
         );
     }
 
-    return ''; // Si l'utilisateur n'a pas les droits, ne rien afficher
+    return '';
 }
 
+/**
+ * Extract a URL returned by Geeklog Item Info or a plugin callback.
+ *
+ * PLG_getItemInfo() may return a scalar value or an indexed/associative array,
+ * depending on the plugin and the requested fields.
+ *
+ * @param mixed $value
+ * @return string
+ */
+function indexnow_extract_item_url($value)
+{
+    if (is_string($value)) {
+        return trim($value);
+    }
 
+    if (!is_array($value)) {
+        return '';
+    }
+
+    if (isset($value['url']) && is_string($value['url'])) {
+        return trim($value['url']);
+    }
+
+    if (isset($value[0]) && is_string($value[0])) {
+        return trim($value[0]);
+    }
+
+    return '';
+}
 
 /**
- * Handle the event when an article or static page is saved.
- * The function checks if the content is a draft or scheduled for future publication,
- * and sends the URL to the IndexNow API if it's eligible.
+ * Resolve the canonical URL of a plugin-owned item that still exists.
  *
- * @param string $id   The ID of the saved content.
- * @param string $type The type of content (article, staticpage or topic).
+ * PLG_getItemInfo() is available throughout the supported Geeklog 2.1.1 to
+ * 2.2.2 range. plugin_idtourl_<type>() is an optional interoperability
+ * fallback and is not assumed to exist for every plugin.
+ *
+ * @param string $type
+ * @param string $id
+ * @param string $sub_type
+ * @return string
  */
-function plugin_itemsaved_indexnow($id, $type, $old_id = '') {
+function indexnow_resolve_saved_plugin_url($type, $id, $sub_type = '')
+{
+    $url = '';
+
+    if (function_exists('PLG_getItemInfo')) {
+        $options = array();
+        if ($sub_type !== '') {
+            $options['sub_type'] = $sub_type;
+        }
+        $itemInfo = PLG_getItemInfo($type, $id, 'url', 0, $options);
+        $url = indexnow_extract_item_url($itemInfo);
+    }
+
+    if ($url !== '') {
+        return $url;
+    }
+
+    $function = 'plugin_idtourl_' . $type;
+    if (function_exists($function)) {
+        $url = trim((string) $function($sub_type, $id));
+    }
+
+    return $url;
+}
+
+/**
+ * Resolve the deterministic URL of a plugin-owned item after deletion.
+ *
+ * The optional plugin_idtourl_<type>() callback is tried first because the
+ * deleted record may no longer exist. PLG_getItemInfo() is retained only as a
+ * compatibility fallback for plugins that can still resolve deleted items.
+ *
+ * @param string $type
+ * @param string $id
+ * @param string $sub_type
+ * @return string
+ */
+function indexnow_resolve_deleted_plugin_url($type, $id, $sub_type = '')
+{
+    $function = 'plugin_idtourl_' . $type;
+    if (function_exists($function)) {
+        $url = trim((string) $function($sub_type, $id));
+        if ($url !== '') {
+            return $url;
+        }
+    }
+
+    if (function_exists('PLG_getItemInfo')) {
+        $options = array();
+        if ($sub_type !== '') {
+            $options['sub_type'] = $sub_type;
+        }
+        return indexnow_extract_item_url(
+            PLG_getItemInfo($type, $id, 'url', 0, $options)
+        );
+    }
+
+    return '';
+}
+
+/**
+ * Handle the event when an item is saved.
+ * Existing article/staticpages/topic behaviour is preserved. Other plugin
+ * types are resolved through Geeklog interoperability callbacks.
+ *
+ * @param string $id
+ * @param string $type
+ * @param string $old_id
+ * @param string $sub_type Optional since Geeklog 2.2.2
+ */
+function plugin_itemsaved_indexnow($id, $type, $old_id = '', $sub_type = '') {
     global $_CONF, $_TABLES, $_INDEXNOW_CONF;
 
-    $url = '';  // Initialize the variable to store the URL
+    $url = '';
 
-    // Get the key to check if plugin is configured
     $key = isset($_INDEXNOW_CONF['indexnow_key'])
         ? $_INDEXNOW_CONF['indexnow_key'] : '';
     if (empty($key)) {
@@ -204,26 +303,20 @@ function plugin_itemsaved_indexnow($id, $type, $old_id = '') {
 
     indexnow_log("Save callback received (type: $type, ID: $id). ");
 
-    // Check the type of saved content
     if ($type === 'article') {
-        // Query to check if the article is in draft mode or scheduled for future publication
         $escaped_id = DB_escapeString($id);
         $sql = "SELECT draft_flag, date FROM {$_TABLES['stories']} WHERE sid = '$escaped_id'";
         $result = DB_query($sql);
         $A = DB_fetchArray($result);
 
         if ($A['draft_flag'] == 1) {
-            // If the article is in draft mode, do not submit the URL
             return;
         }
 
-        // Check if the publication date is in the future
         if (strtotime($A['date']) > time()) {
-            // If the publication date is in the future, do not submit the URL
             return;
         }
 
-        // If the article is not a draft and the date is valid, construct the URL
         if ($_CONF['url_rewrite']) {
             $url = $_CONF['site_url'] . "/article.php/$id";
         } else {
@@ -231,18 +324,15 @@ function plugin_itemsaved_indexnow($id, $type, $old_id = '') {
         }
 
     } elseif ($type === 'staticpages') {
-        // Query to check if the static page is in draft mode
         $escaped_id = DB_escapeString($id);
         $sql = "SELECT draft_flag FROM {$_TABLES['staticpage']} WHERE sp_id = '$escaped_id'";
         $result = DB_query($sql);
         $A = DB_fetchArray($result);
 
         if ($A['draft_flag'] == 1) {
-            // If the static page is in draft mode, do not submit the URL
             return;
         }
 
-        // If the static page is not a draft, construct the URL
         if ($_CONF['url_rewrite']) {
             $url = $_CONF['site_url'] . "/staticpages/index.php/$id";
         } else {
@@ -250,38 +340,42 @@ function plugin_itemsaved_indexnow($id, $type, $old_id = '') {
         }
 
     } elseif ($type === 'topic') {
-        // Topics never use rewritten URLs in Geeklog
         $url = $_CONF['site_url'] . "/index.php?topic=$id";
 
     } else {
-        // If the content type is not supported, log an error
-        indexnow_log("IndexNow Plugin - Unsupported content type: $type for ID $id", true);
-        return;
+        $url = indexnow_resolve_saved_plugin_url($type, $id, $sub_type);
+        if ($url === '') {
+            indexnow_log("Unable to resolve plugin item URL (type: $type, ID: $id).", true);
+            return;
+        }
+        indexnow_log("Resolved plugin item URL (type: $type, ID: $id): $url");
     }
 
-    // Send the URL to the IndexNow API
     send_to_indexnow($url);
 }
 
 /**
  * Handle the event when an item is deleted.
- * The function constructs the URL and sends it to IndexNow for removal.
  *
- * @param string $id       The ID of the deleted content.
- * @param string $type     The type of content (article, staticpages or topic).
- * @param string $sub_type The sub-type if applicable.
+ * Existing article/staticpages/topic behaviour remains unchanged and is still
+ * submitted to IndexNow. Generic plugin deletions are intentionally LOG ONLY
+ * during the validation phase and are NOT sent to IndexNow yet.
+ *
+ * @param string $id
+ * @param string $type
+ * @param string $sub_type Optional since Geeklog 2.2.2
  */
 function plugin_itemdeleted_indexnow($id, $type, $sub_type = '') {
     global $_CONF, $_INDEXNOW_CONF;
-    
+
     $key = isset($_INDEXNOW_CONF['indexnow_key'])
         ? $_INDEXNOW_CONF['indexnow_key'] : '';
     if (empty($key)) {
-        return; // Plugin not configured
+        return;
     }
 
     $url = '';
-    
+
     if ($type === 'article') {
         if ($_CONF['url_rewrite']) {
             $url = $_CONF['site_url'] . "/article.php/$id";
@@ -297,9 +391,19 @@ function plugin_itemdeleted_indexnow($id, $type, $sub_type = '') {
     } elseif ($type === 'topic') {
         $url = $_CONF['site_url'] . "/index.php?topic=$id";
     } else {
+        $url = indexnow_resolve_deleted_plugin_url($type, $id, $sub_type);
+        if ($url === '') {
+            indexnow_log("Generic delete received but URL could not be resolved (type: $type, ID: $id).", true);
+            return;
+        }
+
+        indexnow_log(
+            "TEST generic delete resolved (NOT submitted to IndexNow) - type: $type, ID: $id, URL: $url",
+            true
+        );
         return;
     }
-    
+
     indexnow_log("IndexNow Plugin - Submitting deleted item URL: $url");
     send_to_indexnow($url);
 }
@@ -324,9 +428,6 @@ function send_to_indexnow($url) {
         return false;
     }
 
-    // -------------------------
-    // 🟦 CASE 1 : SINGLE URL (string) → GET
-    // -------------------------
     if (is_string($url)) {
         $endpoint = 'https://api.indexnow.org/indexnow?' . http_build_query(array(
             'url' => $url,
@@ -355,11 +456,7 @@ function send_to_indexnow($url) {
         return $response;
     }
 
-    // -------------------------
-    // 🟩 CASE 2 : MULTIPLE URLs (array) → BATCH POST JSON
-    // -------------------------
     if (is_array($url) && !empty($url)) {
-
         $payload = [
             "host"        => parse_url($_CONF['site_url'], PHP_URL_HOST),
             "key"         => $key,
@@ -397,7 +494,6 @@ function send_to_indexnow($url) {
     return false;
 }
 
-
 /**
  * Submit articles to IndexNow by descending date order.
  * This function retrieves articles sorted by date in descending order
@@ -414,18 +510,15 @@ function submit_articles_by_date_desc_to_indexnow($limit = 1, $offset = 0) {
     $limit = max(1, (int) $limit);
     $offset = max(0, (int) $offset);
 
-    // Requête SQL : trie par date décroissante et utilise offset pour sélectionner le bon lot
-    $sql = "SELECT sid, date 
-            FROM {$_TABLES['stories']} 
-            WHERE draft_flag = 0 
-            AND UNIX_TIMESTAMP(date) <= UNIX_TIMESTAMP(NOW()) 
-            ORDER BY date DESC 
+    $sql = "SELECT sid, date
+            FROM {$_TABLES['stories']}
+            WHERE draft_flag = 0
+            AND UNIX_TIMESTAMP(date) <= UNIX_TIMESTAMP(NOW())
+            ORDER BY date DESC
             LIMIT $offset, $limit";
     $result = DB_query($sql);
 
-    // Récupérer les URLs des articles
     while ($A = DB_fetchArray($result)) {
-        // Construire l'URL de l'article
         if ($_CONF['url_rewrite']) {
             $urls[] = $_CONF['site_url'] . "/article.php/" . $A['sid'];
         } else {
@@ -433,10 +526,8 @@ function submit_articles_by_date_desc_to_indexnow($limit = 1, $offset = 0) {
         }
     }
 
-    // Soumettre les URLs à IndexNow
     send_to_indexnow($urls);
 
-    // Enregistrer dans les logs
     $submitted_count = count($urls);
     indexnow_log("IndexNow: Submitted $submitted_count articles (offset: $offset, limit: $limit).");
 
@@ -446,10 +537,9 @@ function submit_articles_by_date_desc_to_indexnow($limit = 1, $offset = 0) {
 function get_total_articles_to_submit() {
     global $_TABLES;
 
-    // Requête pour compter les articles non soumis (draft_flag = 0)
-    $sql = "SELECT COUNT(*) AS total 
-            FROM {$_TABLES['stories']} 
-            WHERE draft_flag = 0 
+    $sql = "SELECT COUNT(*) AS total
+            FROM {$_TABLES['stories']}
+            WHERE draft_flag = 0
             AND UNIX_TIMESTAMP(date) <= UNIX_TIMESTAMP(NOW())";
     $result = DB_query($sql);
     $A = DB_fetchArray($result);
@@ -466,7 +556,6 @@ function plugin_runScheduledTask_indexnow() {
 
     $urls = [];
 
-    // ---- Stories published in the last 24 hours ----
     $sql = "SELECT sid FROM {$_TABLES['stories']}
             WHERE draft_flag = 0
             AND UNIX_TIMESTAMP(date) >= UNIX_TIMESTAMP(NOW() - INTERVAL 1 DAY)";
@@ -480,7 +569,6 @@ function plugin_runScheduledTask_indexnow() {
         }
     }
 
-    // ---- Staticpages created in the last 24 hours ----
     $sql = "SELECT sp_id FROM {$_TABLES['staticpage']}
             WHERE draft_flag = 0
             AND UNIX_TIMESTAMP(created) >= UNIX_TIMESTAMP(NOW() - INTERVAL 1 DAY)";
@@ -494,10 +582,9 @@ function plugin_runScheduledTask_indexnow() {
         }
     }
 
-    // ---- Submit each URL using the existing function ----
     foreach ($urls as $url) {
         send_to_indexnow($url);
-        usleep(500000); // 0.5s pause to avoid flooding
+        usleep(500000);
     }
 
     indexnow_log("IndexNow scheduled task: submitted " . count($urls) . " URLs from the last 24h.");
