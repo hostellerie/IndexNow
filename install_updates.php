@@ -67,23 +67,40 @@ function indexnow_update_ConfigSecurity_1_1_1()
 }
 
 /**
- * Add the submission history table and retention configuration.
- * Safe to call more than once.
+ * Return whether the IndexNow submission history table exists.
+ *
+ * @return bool
  */
-function indexnow_update_1_2_0()
+function indexnow_submission_table_exists()
 {
-    global $_CONF, $_TABLES;
+    global $_TABLES;
 
-    if (!isset($_TABLES['indexnow_submissions'])) {
+    if (!isset($_TABLES['indexnow_submissions']) || $_TABLES['indexnow_submissions'] === '') {
         return false;
     }
 
     $table = $_TABLES['indexnow_submissions'];
     $result = DB_query("SHOW TABLES LIKE '" . DB_escapeString($table) . "'");
-    $exists = ($result && DB_numRows($result) > 0);
 
-    if (!$exists) {
-        DB_query("CREATE TABLE {$table} (
+    return ($result && DB_numRows($result) > 0);
+}
+
+/**
+ * Add the submission history table and retention configuration.
+ * Safe to call more than once and suitable as a repair step.
+ */
+function indexnow_update_1_2_0()
+{
+    global $_CONF, $_TABLES;
+
+    if (!isset($_TABLES['indexnow_submissions']) || $_TABLES['indexnow_submissions'] === '') {
+        return false;
+    }
+
+    $table = $_TABLES['indexnow_submissions'];
+
+    if (!indexnow_submission_table_exists()) {
+        DB_query("CREATE TABLE IF NOT EXISTS {$table} (
           submission_id int(10) unsigned NOT NULL auto_increment,
           item_type varchar(64) NOT NULL default '',
           item_id varchar(255) NOT NULL default '',
@@ -100,7 +117,7 @@ function indexnow_update_1_2_0()
           KEY status (status),
           KEY item_lookup (item_type,item_id(100))
         ) ENGINE=MyISAM");
-        if (DB_error()) {
+        if (DB_error() || !indexnow_submission_table_exists()) {
             return false;
         }
     }
@@ -124,6 +141,15 @@ function plugin_upgrade_indexnow()
     $installed_version = DB_getItem($_TABLES['plugins'], 'pi_version', "pi_name = 'indexnow'");
     $code_version = plugin_chkVersion_indexnow();
 
+    // 1.2.0 introduced a database table. Always verify it, even when the
+    // plugin version is already recorded as 1.2.0 (for example after files
+    // were replaced before Geeklog's upgrade routine was run).
+    if (version_compare($code_version, '1.2.0', '>=')) {
+        if (!indexnow_update_1_2_0()) {
+            return false;
+        }
+    }
+
     if ($installed_version == $code_version) {
         return true;
     }
@@ -136,12 +162,6 @@ function plugin_upgrade_indexnow()
 
     if (!indexnow_update_ConfigSecurity_1_1_1()) {
         return false;
-    }
-
-    if (version_compare($installed_version, '1.2.0', '<')) {
-        if (!indexnow_update_1_2_0()) {
-            return false;
-        }
     }
 
     DB_query("UPDATE {$_TABLES['plugins']} SET " .
