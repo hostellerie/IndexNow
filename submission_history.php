@@ -141,7 +141,7 @@ function indexnow_purge_submission_history($days = null)
         return 0;
     }
 
-    DB_query(
+    $result = DB_query(
         "DELETE FROM {$_TABLES['indexnow_submissions']} " .
         "WHERE submitted_at < DATE_SUB(NOW(), INTERVAL " . $days . " DAY)"
     );
@@ -150,7 +150,9 @@ function indexnow_purge_submission_history($days = null)
         return 0;
     }
 
-    return function_exists('DB_affectedRows') ? (int) DB_affectedRows() : 0;
+    // Geeklog 2.1.1 requires the query result/connection argument here.
+    // Passing it is also compatible with later Geeklog database wrappers.
+    return function_exists('DB_affectedRows') ? (int) DB_affectedRows($result) : 0;
 }
 
 ?>
