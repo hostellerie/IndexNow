@@ -15,6 +15,8 @@ if (strpos(strtolower($_SERVER['PHP_SELF']), 'submission_history.php') !== false
 
 /**
  * Check whether the submission history table can be used safely.
+ * If 1.2.0 code is present but the migration did not create the table, try to
+ * repair the installation once through the idempotent 1.2.0 updater.
  *
  * @return bool
  */
@@ -27,7 +29,15 @@ function indexnow_history_table_ready()
     }
 
     if (function_exists('indexnow_submission_table_exists')) {
-        return indexnow_submission_table_exists();
+        if (indexnow_submission_table_exists()) {
+            return true;
+        }
+
+        if (function_exists('indexnow_update_1_2_0') && indexnow_update_1_2_0()) {
+            return indexnow_submission_table_exists();
+        }
+
+        return false;
     }
 
     $table = $_TABLES['indexnow_submissions'];
