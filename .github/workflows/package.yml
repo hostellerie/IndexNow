@@ -29,15 +29,19 @@ jobs:
             -not -path './dist/*' \
             -print0 | xargs -0 -n1 php -l
 
-      - name: Verify release metadata
+      - name: Verify release metadata and interoperability
         shell: bash
         run: |
           set -e
-          grep -q "'pi_version'.*'1.1.6'" autoinstall.php
+          grep -q "'pi_version'.*'1.2.0'" autoinstall.php
           grep -q "'pi_gl_version'.*'2.1.1'" autoinstall.php
-          grep -q 'IndexNow Plugin 1.1.6' functions.inc
+          grep -q 'IndexNow Plugin 1.2.0' functions.inc
           grep -q 'function plugin_itemsaved_indexnow' functions.inc
           grep -q 'function plugin_itemdeleted_indexnow' functions.inc
+          grep -q 'function indexnow_resolve_saved_plugin_url' functions.inc
+          grep -q 'function indexnow_resolve_deleted_plugin_url' functions.inc
+          grep -q 'function indexnow_record_submission' submission_history.php
+          grep -q 'indexnow_submissions' sql/mysql_install.php
 
       - name: Build installable archive
         shell: bash
@@ -49,9 +53,11 @@ jobs:
           cp -a \
             admin \
             language \
+            sql \
             autoinstall.php \
             configuration_validation.php \
             functions.inc \
+            submission_history.php \
             install_defaults.php \
             install_updates.php \
             CHANGELOG.md \
@@ -60,25 +66,26 @@ jobs:
             build/indexnow/
 
           cd build
-          zip -r indexnow_1.1.6_2.1.1.zip indexnow >/dev/null
-          unzip -t indexnow_1.1.6_2.1.1.zip >/dev/null
-          test "$(zipinfo -1 indexnow_1.1.6_2.1.1.zip | head -n 1)" = 'indexnow/'
+          zip -r indexnow_1.2.0_2.1.1.zip indexnow >/dev/null
+          unzip -t indexnow_1.2.0_2.1.1.zip >/dev/null
+          test "$(zipinfo -1 indexnow_1.2.0_2.1.1.zip | head -n 1)" = 'indexnow/'
 
       - name: Commit archive to dist
         shell: bash
         run: |
           set -e
           mkdir -p dist
-          cp build/indexnow_1.1.6_2.1.1.zip dist/indexnow_1.1.6_2.1.1.zip
+          rm -f dist/indexnow_*.zip
+          cp build/indexnow_1.2.0_2.1.1.zip dist/indexnow_1.2.0_2.1.1.zip
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -f dist/indexnow_1.1.6_2.1.1.zip
+          git add -A -f dist
 
           if git diff --cached --quiet; then
             echo 'Archive is already up to date.'
             exit 0
           fi
 
-          git commit -m 'Build IndexNow 1.1.6 installable archive [skip ci]'
+          git commit -m 'Build IndexNow 1.2.0 installable archive [skip ci]'
           git push origin HEAD:generic-item-listener
