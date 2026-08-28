@@ -70,6 +70,7 @@ $LANG_indexnow = array(
     'error_log' => 'Log file:',
     'history_retention' => 'History retention',
     'recent_submissions' => 'Recent submissions',
+    'submission_history' => 'Submission history',
     'history_empty' => 'No IndexNow submission has been recorded yet.',
     'history_date' => 'Date',
     'history_item' => 'Item',
@@ -78,6 +79,12 @@ $LANG_indexnow = array(
     'history_http' => 'HTTP',
     'history_url' => 'URL',
     'history_message' => 'Details',
+    'filter_status' => 'Status',
+    'filter_event' => 'Event',
+    'filter_type' => 'Type',
+    'filter_all_statuses' => 'All statuses',
+    'filter_all_events' => 'All events',
+    'filter_all_types' => 'All types',
     'documentation' => 'Documentation & Help',
     'documentation_content' => '<p><strong>Step 1: Generate an IndexNow Key</strong><br>Visit the IndexNow key creation page at <a href="https://www.bing.com/webmasters/indexnow" target="_blank" rel="noopener noreferrer">https://www.bing.com/webmasters/indexnow</a>.</p><p><strong>Step 2: Create and Host the Key File</strong><br>Create a text file containing only your key and upload it to the root directory of your website.</p><p><strong>Step 3: Configure the Plugin</strong><br>Open Geeklog Configuration, select IndexNow, and enter your key. Version 1.2.0 records automatic, deleted, scheduled and manual submission attempts in its own history table.</p>'
 );
