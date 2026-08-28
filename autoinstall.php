@@ -65,7 +65,9 @@ function plugin_load_configuration_indexnow($pi_name)
 
 function plugin_postinstall_indexnow($pi_name)
 {
-    return true;
+    return function_exists('indexnow_update_1_2_0')
+        ? indexnow_update_1_2_0()
+        : true;
 }
 
 function plugin_compatible_with_this_version_indexnow($pi_name)
