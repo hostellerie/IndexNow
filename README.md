@@ -1,12 +1,12 @@
 # IndexNow Plugin for Geeklog 2.1.1 to 2.2.2
 
-Current development release: **1.2.1**
+Current development release: **1.3.0**
 
 ## Overview
 
-The **IndexNow** plugin for Geeklog notifies IndexNow-compatible search engines when addressable content is created, updated, or deleted. Version 1.2.x also records submission attempts so administrators can see what was submitted, skipped, rejected or remediated.
+The **IndexNow** plugin for Geeklog notifies IndexNow-compatible search engines when addressable content is created, updated, renamed or deleted. It records submission attempts so administrators can see what was submitted, skipped, rejected or remediated.
 
-Version 1.2.1 is a security and reliability maintenance release. It validates plugin-provided URLs before submission, enforces anonymous visibility for core and plugin-owned content, hardens key and configuration handling, protects log integrity, submits scheduled content in controlled batches and adds an automated remediation mechanism for URLs that should no longer have been exposed.
+Version 1.3.0 builds on the 1.2.x security and reliability work and focuses on Geeklog interoperability, predictable canonical URL changes and provider-neutral lifecycle handling. Existing 1.2.1 protections for anonymous visibility, URL/key validation, cleanup history and controlled batching remain part of the compatibility baseline.
 
 ## Features
 
