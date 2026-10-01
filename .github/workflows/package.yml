@@ -1,26 +1,37 @@
-name: Build installable archive
+name: Validate and build IndexNow 1.3.0
 
 on:
   push:
     branches:
-      - generic-item-listener
       - main
-      - develop-1.2.1
+      - develop-1.3.0
+    paths-ignore:
+      - 'dist/**'
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  package:
+  validate:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - '5.6'
+          - '8.1'
 
     steps:
       - name: Checkout branch
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@v5
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@v2
         with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
+          php-version: ${{ matrix.php }}
+          coverage: none
 
       - name: Lint plugin PHP files
         shell: bash
@@ -32,14 +43,15 @@ jobs:
             -print0 | xargs -0 -n1 php -l
 
       - name: Verify release metadata and interoperability
+        if: matrix.php == '8.1'
         shell: bash
         run: |
           set -e
-          grep -q "'pi_version'.*'1.2.1'" autoinstall.php
+          grep -q "'pi_version'.*'1.3.0'" autoinstall.php
           grep -q "'pi_gl_version'.*'2.1.1'" autoinstall.php
           grep -q 'function plugin_itemsaved_indexnow' functions.inc
           grep -q "old_id !== ''" functions.inc
-          grep -q "function indexnow_resolve_previous_url_for_rename" functions.inc
+          grep -q 'function indexnow_resolve_previous_url_for_rename' functions.inc
           grep -q "indexnow_previous_public_url(\$type, \$old_id)" functions.inc
           grep -q "indexnow_call_idtourl('plugin_idtourl_'" functions.inc
           grep -q "indexnow_submission_context(\$type, \$old_id, \$sub_type, 'deleted')" functions.inc
@@ -65,6 +77,26 @@ jobs:
           grep -q "'history_batch_accepted'" language/english.php
           grep -q "\$LANG_indexnow\['cleanup_run_now'\]" admin/index.php
           grep -q "\$LANG_indexnow\['coexistence_title'\]" admin/index.php
+          grep -q 'Current development release: \*\*1.3.0\*\*' README.md
+          grep -q '^## 1.3.0$' CHANGELOG.md
+
+  package:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          coverage: none
 
       - name: Build installable archive
         shell: bash
@@ -84,16 +116,20 @@ jobs:
             submission_history.php \
             install_defaults.php \
             install_updates.php \
+            plugin.json \
             CHANGELOG.md \
             INSTALL \
             README.md \
             build/indexnow/
 
           cd build
-          zip -r indexnow_1.2.1_2.1.1.zip indexnow >/dev/null
-          unzip -t indexnow_1.2.1_2.1.1.zip >/dev/null
-          test "$(zipinfo -1 indexnow_1.2.1_2.1.1.zip | head -n 1)" = 'indexnow/'
-          sha256sum indexnow_1.2.1_2.1.1.zip > indexnow_1.2.1_2.1.1.zip.sha256
+          zip -r indexnow_1.3.0_2.1.1.zip indexnow >/dev/null
+          unzip -t indexnow_1.3.0_2.1.1.zip >/dev/null
+          test "$(zipinfo -1 indexnow_1.3.0_2.1.1.zip | head -n 1)" = 'indexnow/'
+          zipinfo -1 indexnow_1.3.0_2.1.1.zip | grep '^indexnow/plugin.json$'
+          zipinfo -1 indexnow_1.3.0_2.1.1.zip | grep '^indexnow/functions.inc$'
+          zipinfo -1 indexnow_1.3.0_2.1.1.zip | grep '^indexnow/admin/'
+          sha256sum indexnow_1.3.0_2.1.1.zip > indexnow_1.3.0_2.1.1.zip.sha256
 
       - name: Commit archive to dist
         shell: bash
@@ -101,8 +137,8 @@ jobs:
           set -e
           mkdir -p dist
           rm -f dist/indexnow_*.zip dist/indexnow_*.zip.sha256
-          cp build/indexnow_1.2.1_2.1.1.zip dist/indexnow_1.2.1_2.1.1.zip
-          cp build/indexnow_1.2.1_2.1.1.zip.sha256 dist/indexnow_1.2.1_2.1.1.zip.sha256
+          cp build/indexnow_1.3.0_2.1.1.zip dist/indexnow_1.3.0_2.1.1.zip
+          cp build/indexnow_1.3.0_2.1.1.zip.sha256 dist/indexnow_1.3.0_2.1.1.zip.sha256
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -113,5 +149,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m 'Build IndexNow 1.2.1 installable archive [skip ci]'
+          git commit -m 'Build IndexNow 1.3.0 installable archive [dist]'
           git push origin HEAD:${{ github.ref_name }}
