@@ -16,6 +16,7 @@ Version 1.2.1 is a security and reliability maintenance release. It validates pl
 - **Same-host URL validation**: only HTTP(S) URLs belonging to the configured Geeklog host are accepted for IndexNow submission.
 - **Namespaced item IDs**: supports identifiers such as `maps / marker:123` while remaining compatible with Geeklog 2.1.1 lifecycle events.
 - **Automated submission**: submits created and updated public URLs when a valid IndexNow key is configured.
+- **ID/URL rename handling**: when `PLG_itemSaved()` reports a different `old_id`, IndexNow submits the previous URL for recrawl/removal and then submits the new canonical URL. It prefers retained submission history when available, but does not depend on that temporary history: core URLs are reconstructed from the old ID and plugin URLs can be resolved through the provider's `plugin_idtourl_*()` contract.
 - **Safe deletion submission**: submits a deleted URL only when local history proves it had previously been submitted successfully while public.
 - **Submission history**: records automatic, deleted, manual, scheduled and cleanup attempts with item identity, URL, HTTP code, status and timestamp.
 - **Security remediation queue**: audits previously successful submissions and queues URLs that are now private, deleted or have a changed canonical URL.
