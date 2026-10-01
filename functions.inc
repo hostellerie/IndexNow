@@ -240,6 +240,34 @@ function indexnow_resolve_deleted_plugin_url($type, $id, $sub_type = '')
     return '';
 }
 
+function indexnow_resolve_previous_url_for_rename($type, $old_id, $sub_type = '')
+{
+    global $_CONF;
+
+    $historyUrl = indexnow_previous_public_url($type, $old_id);
+    if ($historyUrl !== '') {
+        return $historyUrl;
+    }
+
+    if ($type === 'article') {
+        return $_CONF['url_rewrite']
+            ? $_CONF['site_url'] . "/article.php/" . rawurlencode($old_id)
+            : $_CONF['site_url'] . "/article.php?story=" . rawurlencode($old_id);
+    }
+
+    if ($type === 'staticpages') {
+        return $_CONF['url_rewrite']
+            ? $_CONF['site_url'] . "/staticpages/index.php/" . rawurlencode($old_id)
+            : $_CONF['site_url'] . "/staticpages/index.php?page=" . rawurlencode($old_id);
+    }
+
+    if ($type === 'topic') {
+        return $_CONF['site_url'] . "/index.php?topic=" . rawurlencode($old_id);
+    }
+
+    return indexnow_call_idtourl('plugin_idtourl_' . $type, $sub_type, $old_id);
+}
+
 function indexnow_submission_context($type, $id, $sub_type, $event)
 {
     return array(
@@ -377,6 +405,19 @@ function plugin_itemsaved_indexnow($id, $type, $old_id = '', $sub_type = '')
         indexnow_log("Save resolved but not submitted: no key configured (type: $type, ID: $id, URL: $url).", true);
         indexnow_record_submission($context, $url, false, 0, 'skipped', $LANG_indexnow['history_no_key']);
         return;
+    }
+
+    if ($old_id !== '' && (string) $old_id !== (string) $id) {
+        $oldUrl = indexnow_resolve_previous_url_for_rename($type, $old_id, $sub_type);
+
+        if ($oldUrl !== ''
+            && $oldUrl !== $url
+            && indexnow_validate_url($oldUrl) !== false
+        ) {
+            $oldContext = indexnow_submission_context($type, $old_id, $sub_type, 'deleted');
+            indexnow_log("Item ID changed; requesting recrawl of previous URL (type: $type, old ID: $old_id, new ID: $id).", true);
+            send_to_indexnow($oldUrl, $oldContext);
+        }
     }
 
     send_to_indexnow($url, $context);
