@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0
+
+- Continue the generic Geeklog lifecycle model for core and plugin-owned content.
+- Handle explicit item ID changes through `PLG_itemSaved($id, $type, $old_id, ...)`.
+- Resolve the previous URL for a rename without depending on temporary IndexNow submission history: prefer retained history, reconstruct supported Geeklog Core URLs, and use the provider's `plugin_idtourl_*()` contract for plugin-owned content.
+- Keep ordinary delete submission history-safe while treating an explicit rename as a deterministic canonical URL change.
+- Preserve Geeklog 2.1.1 through 2.2.2 and PHP 5.6 through 8.1 compatibility.
+- Build and validate the 1.3.0 installable archive from the active `develop-1.3.0` branch.
+
 ## 1.2.1
 
 - Validate all submitted URLs before contacting IndexNow and reject non-HTTP(S), foreign-host, credential-bearing, control-character and unexpected-port URLs.
