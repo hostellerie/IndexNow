@@ -38,6 +38,11 @@ jobs:
           grep -q "'pi_version'.*'1.2.1'" autoinstall.php
           grep -q "'pi_gl_version'.*'2.1.1'" autoinstall.php
           grep -q 'function plugin_itemsaved_indexnow' functions.inc
+          grep -q "old_id !== ''" functions.inc
+          grep -q "function indexnow_resolve_previous_url_for_rename" functions.inc
+          grep -q "indexnow_previous_public_url(\$type, \$old_id)" functions.inc
+          grep -q "indexnow_call_idtourl('plugin_idtourl_'" functions.inc
+          grep -q "indexnow_submission_context(\$type, \$old_id, \$sub_type, 'deleted')" functions.inc
           grep -q 'function plugin_itemdeleted_indexnow' functions.inc
           grep -q 'function indexnow_resolve_saved_plugin_url' functions.inc
           grep -q 'function indexnow_resolve_deleted_plugin_url' functions.inc
