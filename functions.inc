@@ -34,6 +34,9 @@ if (!isset($_INDEXNOW_CONF)) {
 $_TABLES['indexnow_submissions'] = $_DB_table_prefix . 'indexnow_submissions';
 require_once $plugin_path . 'submission_history.php';
 
+/* Native Geeklog PLG_invokeService() callbacks. */
+require_once $plugin_path . 'services.inc.php';
+
 function indexnow_sanitize_log_value($value)
 {
     return str_replace(array("\r", "\n", "\0"), '', (string) $value);
@@ -160,6 +163,32 @@ function plugin_cclabel_indexnow()
     }
 
     return '';
+}
+
+/**
+ * Advertise only implemented IndexNow interoperability surfaces.
+ *
+ * @return array
+ */
+function plugin_getcapabilities_indexnow()
+{
+    return array(
+        'schema' => 1,
+        'roles' => array('infrastructure', 'service'),
+        'capabilities' => array(
+            'indexnow.urls.submit'
+        ),
+        'lifecycle' => array(
+            'emits' => array(),
+            'listens' => array('item.saved', 'item.deleted'),
+            'sub_type' => true
+        )
+    );
+}
+
+function plugin_wsEnabled_indexnow()
+{
+    return true;
 }
 
 function plugin_getadminoption_indexnow()
