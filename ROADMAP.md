@@ -475,7 +475,14 @@ For 1.3.0, the existing core scheduled fallback may remain.
 
 ## 4.2 Capability discovery
 
-Add a small, dependency-free capability description, conceptually:
+Implemented interoperability surface:
+
+- `plugin_getcapabilities_indexnow()` advertises `indexnow.urls.submit` only after the native service exists;
+- `plugin_wsEnabled_indexnow()` enables Geeklog's native service dispatcher;
+- `service_submit_urls_indexnow()` accepts internal plugin-to-plugin calls, requires `indexnow.admin` for external Web Services calls, deduplicates URL batches and reuses IndexNow's existing transport/history logic;
+- no new persistence table or asynchronous queue is introduced.
+
+The original lightweight capability idea remains compatible with this shared Geeklog contract. Conceptually:
 
 ```php
 indexnow_get_capabilities()
@@ -686,7 +693,7 @@ Before release:
 ## Phase 4 — Administration and interoperability
 
 - [ ] Reduce `admin/index.php` responsibilities.
-- [ ] Add lightweight capability discovery.
+- [x] Add lightweight capability discovery and native Geeklog service exposure for `indexnow.urls.submit`; internal consumers use `PLG_invokeService()` while IndexNow retains URL validation, deduplication, batching, transport and submission history.
 - [ ] Evaluate generic collection support for scheduled submissions.
 
 ## Phase 5 — Release validation
