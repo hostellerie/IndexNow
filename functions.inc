@@ -176,7 +176,8 @@ function plugin_getcapabilities_indexnow()
         'schema' => 1,
         'roles' => array('infrastructure', 'service'),
         'capabilities' => array(
-            'indexnow.urls.submit'
+            'indexnow.urls.submit',
+            'indexnow.status.read'
         ),
         'lifecycle' => array(
             'emits' => array(),
