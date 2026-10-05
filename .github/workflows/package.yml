@@ -61,6 +61,11 @@ jobs:
           grep -q 'function indexnow_validate_url' functions.inc
           grep -q 'function indexnow_validate_key' functions.inc
           grep -q 'function indexnow_sanitize_log_value' functions.inc
+          grep -q 'function plugin_getcapabilities_indexnow' functions.inc
+          grep -q "'indexnow.urls.submit'" functions.inc
+          grep -q 'function plugin_wsEnabled_indexnow' functions.inc
+          grep -q 'function service_submit_urls_indexnow' services.inc.php
+          grep -q 'function INDEXNOW_SERVICE_prepareBatch' services.inc.php
           grep -q 'function indexnow_apply_curl_security' functions.inc
           grep -q 'batchSize = 100' functions.inc
           grep -q 'indexnow_process_cleanup_queue(100)' functions.inc
@@ -113,6 +118,7 @@ jobs:
             cleanup.php \
             configuration_validation.php \
             functions.inc \
+            services.inc.php \
             submission_history.php \
             install_defaults.php \
             install_updates.php \
@@ -127,7 +133,56 @@ jobs:
           unzip -t indexnow_1.3.0_2.1.1.zip >/dev/null
           test "$(zipinfo -1 indexnow_1.3.0_2.1.1.zip | head -n 1)" = 'indexnow/'
           zipinfo -1 indexnow_1.3.0_2.1.1.zip | grep '^indexnow/plugin.json$'
-          zipinfo -1 indexnow_1.3.0_2.1.1.zip | grep '^indexnow/functions.inc$'
+          zipinfo -1 indexnow_1.3.0_2.1.1.zip | grep '^indexnow/functions.inc
+          zipinfo -1 indexnow_1.3.0_2.1.1.zip | grep '^indexnow/admin/'
+          sha256sum indexnow_1.3.0_2.1.1.zip > indexnow_1.3.0_2.1.1.zip.sha256
+
+      - name: Commit archive to dist
+        shell: bash
+        run: |
+          set -e
+          mkdir -p dist
+          rm -f dist/indexnow_*.zip dist/indexnow_*.zip.sha256
+          cp build/indexnow_1.3.0_2.1.1.zip dist/indexnow_1.3.0_2.1.1.zip
+          cp build/indexnow_1.3.0_2.1.1.zip.sha256 dist/indexnow_1.3.0_2.1.1.zip.sha256
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -f dist
+
+          if git diff --cached --quiet; then
+            echo 'Archive is already up to date.'
+            exit 0
+          fi
+
+          git commit -m 'Build IndexNow 1.3.0 installable archive [dist]'
+          git push origin HEAD:${{ github.ref_name }}
+
+          zipinfo -1 indexnow_1.3.0_2.1.1.zip | grep '^indexnow/services.inc.php
+          zipinfo -1 indexnow_1.3.0_2.1.1.zip | grep '^indexnow/admin/'
+          sha256sum indexnow_1.3.0_2.1.1.zip > indexnow_1.3.0_2.1.1.zip.sha256
+
+      - name: Commit archive to dist
+        shell: bash
+        run: |
+          set -e
+          mkdir -p dist
+          rm -f dist/indexnow_*.zip dist/indexnow_*.zip.sha256
+          cp build/indexnow_1.3.0_2.1.1.zip dist/indexnow_1.3.0_2.1.1.zip
+          cp build/indexnow_1.3.0_2.1.1.zip.sha256 dist/indexnow_1.3.0_2.1.1.zip.sha256
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -f dist
+
+          if git diff --cached --quiet; then
+            echo 'Archive is already up to date.'
+            exit 0
+          fi
+
+          git commit -m 'Build IndexNow 1.3.0 installable archive [dist]'
+          git push origin HEAD:${{ github.ref_name }}
+
           zipinfo -1 indexnow_1.3.0_2.1.1.zip | grep '^indexnow/admin/'
           sha256sum indexnow_1.3.0_2.1.1.zip > indexnow_1.3.0_2.1.1.zip.sha256
 
