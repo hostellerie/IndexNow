@@ -477,9 +477,10 @@ For 1.3.0, the existing core scheduled fallback may remain.
 
 Implemented interoperability surface:
 
-- `plugin_getcapabilities_indexnow()` advertises `indexnow.urls.submit` only after the native service exists;
+- `plugin_getcapabilities_indexnow()` advertises `indexnow.urls.submit` and `indexnow.status.read` only after the corresponding native services exist;
 - `plugin_wsEnabled_indexnow()` enables Geeklog's native service dispatcher;
 - `service_submit_urls_indexnow()` accepts internal plugin-to-plugin calls, requires `indexnow.admin` for external Web Services calls, deduplicates URL batches and reuses IndexNow's existing transport/history logic;
+- `service_status_read_indexnow()` exposes normalized transport/key/history health without revealing the configured key or local key-file path;
 - no new persistence table or asynchronous queue is introduced.
 
 The original lightweight capability idea remains compatible with this shared Geeklog contract. Conceptually:
