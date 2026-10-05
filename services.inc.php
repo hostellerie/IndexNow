@@ -165,3 +165,59 @@ function service_submit_urls_indexnow($args, &$output, &$svc_msg)
         'batch_size' => $batchSize,
     ), $output, $svc_msg);
 }
+
+
+/**
+ * indexnow.status.read
+ *
+ * Read-only normalized operational status. Secrets and local filesystem paths
+ * are intentionally excluded from the service envelope.
+ */
+function service_status_read_indexnow($args, &$output, &$svc_msg)
+{
+    if (!INDEXNOW_SERVICE_authorized($args)) {
+        return INDEXNOW_SERVICE_denied($output, $svc_msg);
+    }
+
+    $keyStatus = function_exists('indexnow_get_key_status')
+        ? indexnow_get_key_status()
+        : array();
+
+    $historyAvailable = function_exists('indexnow_history_table_ready')
+        ? (bool) indexnow_history_table_ready()
+        : false;
+
+    $latest = array();
+    if ($historyAvailable && function_exists('indexnow_get_recent_submissions')) {
+        $recent = indexnow_get_recent_submissions(1);
+        if (!empty($recent) && is_array($recent[0])) {
+            $row = $recent[0];
+            $latest = array(
+                'item_type' => isset($row['item_type']) ? (string) $row['item_type'] : '',
+                'item_id' => isset($row['item_id']) ? (string) $row['item_id'] : '',
+                'event' => isset($row['event']) ? (string) $row['event'] : '',
+                'submitted' => !empty($row['submitted']),
+                'http_code' => isset($row['http_code']) ? (int) $row['http_code'] : 0,
+                'status' => isset($row['status']) ? (string) $row['status'] : '',
+                'submitted_at' => isset($row['submitted_at']) ? (string) $row['submitted_at'] : '',
+            );
+        }
+    }
+
+    return INDEXNOW_SERVICE_ok(array(
+        'capability' => 'indexnow.status.read',
+        'transport' => array(
+            'mode' => 'immediate-batch',
+            'batch_size' => 100,
+        ),
+        'key' => array(
+            'present' => !empty($keyStatus['key_present']),
+            'valid' => !empty($keyStatus['key_valid']),
+            'file_exists' => !empty($keyStatus['file_exists']),
+            'file_readable' => !empty($keyStatus['file_readable']),
+            'file_matches' => !empty($keyStatus['file_matches']),
+        ),
+        'history_available' => $historyAvailable,
+        'latest_submission' => $latest,
+    ), $output, $svc_msg);
+}
