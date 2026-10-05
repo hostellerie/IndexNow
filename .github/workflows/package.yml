@@ -65,6 +65,8 @@ jobs:
           grep -q "'indexnow.urls.submit'" functions.inc
           grep -q 'function plugin_wsEnabled_indexnow' functions.inc
           grep -q 'function service_submit_urls_indexnow' services.inc.php
+          grep -q 'function service_status_read_indexnow' services.inc.php
+          grep -q "'indexnow.status.read'" functions.inc
           grep -q 'function INDEXNOW_SERVICE_prepareBatch' services.inc.php
           grep -q 'function indexnow_apply_curl_security' functions.inc
           grep -q 'batchSize = 100' functions.inc
