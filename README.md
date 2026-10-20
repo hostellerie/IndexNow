@@ -8,6 +8,13 @@ The **IndexNow** plugin for Geeklog notifies IndexNow-compatible search engines 
 
 Version 1.3.0 builds on the 1.2.x security and reliability work and focuses on Geeklog interoperability, predictable canonical URL changes and provider-neutral lifecycle handling. Existing 1.2.1 protections for anonymous visibility, URL/key validation, cleanup history and controlled batching remain part of the compatibility baseline.
 
+
+### Home-only Staticpages center blocks (development fix)
+
+Geeklog uses `homeonly` as a special topic assignment for homepage-only content. It is not an ordinary topic and may be excluded by `COM_getTopicSQL()`. In `develop-1.3.0`, IndexNow includes a narrowly scoped fallback for Staticpages center blocks assigned to `homeonly`: only non-draft, non-template blocks with anonymous read permission are eligible. Other Staticpages continue through the normal topic and permission checks. This does **not** change Geeklog's search setting or indexing directives.
+
+Regression checks before release: save a public `homeonly` Center Block and confirm the history no longer records `Private content`; repeat with `perm_anon` denying read, a draft, a template, a non-center-block page, and a restricted conventional topic; confirm all are still skipped. Check successful HTTP submission and Bing discovery separately. PHP 5.6/8.1 syntax/CI and production behavior remain to be verified.
+
 ## Features
 
 - **Generic Geeklog lifecycle listener**: listens to `PLG_itemSaved()` and `PLG_itemDeleted()` for core and plugin-owned content.
