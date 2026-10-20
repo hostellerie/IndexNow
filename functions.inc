@@ -334,7 +334,32 @@ function indexnow_core_item_is_public($type, $id)
     }
 
     $result = DB_query($sql);
-    return ($result && DB_numRows($result) > 0);
+    if ($result && DB_numRows($result) > 0) {
+        return true;
+    }
+
+    if ($type === 'staticpages') {
+        // Geeklog's 'homeonly' is a special topic assignment, not a
+        // conventional topic. COM_getTopicSQL() may exclude it even though
+        // a published center block is anonymously visible on the front page.
+        // Keep draft, template, center-block, assignment and anonymous
+        // item-permission checks; never treat arbitrary inaccessible pages
+        // as public.
+        $homeOnly = defined('TOPIC_HOMEONLY_OPTION')
+            ? TOPIC_HOMEONLY_OPTION : 'homeonly';
+        $homeOnly = DB_escapeString($homeOnly);
+        $homeSql = "SELECT sp.sp_id FROM {$_TABLES['staticpage']} sp " .
+            "INNER JOIN {$_TABLES['topic_assignments']} ta " .
+            "ON ta.type='staticpages' AND ta.id=sp.sp_id " .
+            "WHERE sp.sp_id='$id' AND sp.draft_flag=0 " .
+            "AND sp.template_flag=0 AND sp.sp_centerblock=1 " .
+            "AND ta.tid='$homeOnly' " .
+            COM_getPermSQL('AND', 1, 2, 'sp') . ' LIMIT 1';
+        $homeResult = DB_query($homeSql);
+        return ($homeResult && DB_numRows($homeResult) > 0);
+    }
+
+    return false;
 }
 
 function indexnow_was_previously_public($type, $id)
